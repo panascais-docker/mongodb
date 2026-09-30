@@ -1,26 +1,33 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
 )
 
-const (
-	healthTimeout = 60 * time.Second
-	platforms     = "linux/amd64,linux/arm64"
-)
+const healthTimeout = 60 * time.Second
 
 type registry struct {
 	host    string
 	image   string
 	secrets string
+}
+
+type flavor struct {
+	name     string
+	suffixes []string
 }
 
 var (
@@ -29,7 +36,12 @@ var (
 		{image: "panascais/mongodb", secrets: "DOCKER"},
 		{host: "quay.io", image: "quay.io/panascais/mongodb", secrets: "QUAY"},
 	}
-	flavors         = []struct{ name, suffix string }{{"standalone", ""}, {"replica", "-replica"}, {"cluster", "-cluster"}}
+	flavors = []flavor{
+		{name: "standalone", suffixes: []string{"", "-standalone"}},
+		{name: "replica", suffixes: []string{"-replica"}},
+		{name: "cluster", suffixes: []string{"-cluster"}},
+	}
+	pushPlatforms   = []string{"linux/amd64", "linux/arm64"}
 	defaultVariants = []string{"ubi10", "ubi9", "ubi8"}
 	digestPattern   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 )
@@ -37,8 +49,26 @@ var (
 type build struct {
 	flavor  string
 	image   string
+	variant string
 	version string
 	tags    []string
+}
+
+type bakeFile struct {
+	Group  map[string]bakeGroup  `json:"group"`
+	Target map[string]bakeTarget `json:"target"`
+}
+
+type bakeGroup struct {
+	Targets []string `json:"targets"`
+}
+
+type bakeTarget struct {
+	Args      map[string]string `json:"args"`
+	Context   string            `json:"context"`
+	Platforms []string          `json:"platforms,omitzero"`
+	Tags      []string          `json:"tags"`
+	Target    string            `json:"target"`
 }
 
 func buildCommand() *cobra.Command {
@@ -92,14 +122,17 @@ func planBuilds(line string, tags, digests configuration) ([]build, error) {
 		for _, flavor := range flavors {
 			var imageTags []string
 			for _, registry := range registries {
-				for _, name := range names {
-					imageTags = append(imageTags, registry.image+":"+name+flavor.suffix)
+				for _, suffix := range flavor.suffixes {
+					for _, name := range names {
+						imageTags = append(imageTags, registry.image+":"+name+suffix)
+					}
 				}
 			}
 
 			builds = append(builds, build{
 				flavor:  flavor.name,
 				image:   repository + ":" + tag + "@" + digest,
+				variant: variant,
 				version: version,
 				tags:    imageTags,
 			})
@@ -174,69 +207,66 @@ func publish(builds []build) error {
 		return err
 	}
 
-	if err := warmCache(builds, revision); err != nil {
-		return err
-	}
-
 	for _, registry := range registries {
 		if err := registry.login(); err != nil {
 			return err
 		}
 	}
 
-	for _, build := range builds {
-		if err := run("docker", build.buildx(revision, "--push", "--platform", platforms)...); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func warmCache(builds []build, revision string) error {
-	for _, build := range builds {
-		if build.flavor != "cluster" {
-			continue
-		}
-
-		if err := run("docker", build.buildx(revision, "--platform", platforms)...); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return bake(builds, revision, pushPlatforms, "--push")
 }
 
 func buildLocally(builds []build) error {
-	for _, build := range builds {
-		if err := run("docker", build.buildx("local", "--load")...); err != nil {
-			return err
-		}
-
-		if err := verifyImage(build.tags[0]); err != nil {
-			return err
-		}
+	if err := bake(builds, "local", nil, "--load"); err != nil {
+		return err
 	}
 
-	return nil
+	errs := make([]error, len(builds))
+
+	var group sync.WaitGroup
+	for index, build := range builds {
+		group.Go(func() { errs[index] = verifyImage(build.tags[0]) })
+	}
+	group.Wait()
+
+	return errors.Join(errs...)
 }
 
-func (build build) buildx(revision string, flags ...string) []string {
-	arguments := []string{
-		"buildx", "build",
-		"--build-arg", "BUILD_DATE=" + time.Now().UTC().Format(time.RFC3339),
-		"--build-arg", "MONGODB_IMAGE=" + build.image,
-		"--build-arg", "MONGODB_VERSION=" + build.version,
-		"--build-arg", "VCS_REF=" + revision,
-		"--target", build.flavor,
-		"--progress=plain",
+func bake(builds []build, revision string, platforms []string, mode string) error {
+	definition, err := bakeDefinition(builds, revision, platforms)
+	if err != nil {
+		return err
 	}
 
-	for _, tag := range build.tags {
-		arguments = append(arguments, "-t", tag)
+	process := command("docker", "buildx", "bake", "--file", "-", "--progress=plain", mode)
+	process.Stdin = bytes.NewReader(definition)
+
+	return process.Run()
+}
+
+func bakeDefinition(builds []build, revision string, platforms []string) ([]byte, error) {
+	date := time.Now().UTC().Format(time.RFC3339)
+
+	targets := make(map[string]bakeTarget, len(builds))
+	for _, build := range builds {
+		targets[build.variant+"-"+build.flavor] = bakeTarget{
+			Args: map[string]string{
+				"BUILD_DATE":      date,
+				"MONGODB_IMAGE":   build.image,
+				"MONGODB_VERSION": build.version,
+				"VCS_REF":         revision,
+			},
+			Context:   ".",
+			Platforms: platforms,
+			Tags:      build.tags,
+			Target:    build.flavor,
+		}
 	}
 
-	return slices.Concat(arguments, flags, []string{"."})
+	return json.Marshal(bakeFile{
+		Group:  map[string]bakeGroup{"default": {Targets: slices.Sorted(maps.Keys(targets))}},
+		Target: targets,
+	})
 }
 
 func verifyImage(image string) error {
@@ -290,10 +320,6 @@ func command(name string, arguments ...string) *exec.Cmd {
 	process.Stdout, process.Stderr = os.Stdout, os.Stderr
 
 	return process
-}
-
-func run(name string, arguments ...string) error {
-	return command(name, arguments...).Run()
 }
 
 func output(name string, arguments ...string) (string, error) {
