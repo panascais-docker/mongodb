@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"slices"
@@ -31,7 +32,7 @@ type release struct {
 func updateCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "update",
-		Short: `Pin the newest upstream image per line and variant, printing "continue" on changes and "exit" otherwise`,
+		Short: `Pin the newest upstream image per line and variant, printing the changed lines as a JSON array`,
 		Args:  cobra.NoArgs,
 		RunE:  func(command *cobra.Command, _ []string) error { return update(command.Context()) },
 	}
@@ -62,7 +63,7 @@ func update(ctx context.Context) error {
 	}
 
 	if digests.equal(digestsBefore) && tags.equal(tagsBefore) {
-		fmt.Println("exit")
+		fmt.Println("[]")
 
 		return nil
 	}
@@ -75,9 +76,25 @@ func update(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Println("continue")
+	lines, err := json.Marshal(changedLines(digests, tags, digestsBefore, tagsBefore))
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(string(lines))
 
 	return nil
+}
+
+func changedLines(digests, tags, digestsBefore, tagsBefore configuration) []string {
+	lines := []string{}
+	for _, line := range sortedKeys(tags) {
+		if digests.changed(digestsBefore, line) || tags.changed(tagsBefore, line) {
+			lines = append(lines, line)
+		}
+	}
+
+	return lines
 }
 
 func resolvePins(ctx context.Context, releases map[string]map[string]release, digestsBefore, tagsBefore configuration) (configuration, configuration, error) {

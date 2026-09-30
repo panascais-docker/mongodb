@@ -14,15 +14,24 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 FROM ${MONGODB_IMAGE} AS upstream
 
-FROM alpine:3.24 AS mongod
+FROM --platform=$BUILDPLATFORM alpine:3.24 AS strip
 
-RUN apk add --no-cache binutils
+ARG TARGETARCH
+
+RUN target=$(case $TARGETARCH in amd64) echo x86_64 ;; arm64) echo aarch64 ;; esac) && \
+    if [ "$target" = "$(apk --print-arch)" ]; then \
+        apk add --no-cache binutils; \
+    else \
+        apk add --no-cache binutils-$target && ln -s /usr/bin/$target-alpine-linux-musl-strip /usr/local/bin/strip; \
+    fi
+
+FROM strip AS mongod
+
 COPY --from=upstream /usr/bin/mongod /usr/bin/mongod
 RUN strip /usr/bin/mongod
 
-FROM alpine:3.24 AS mongos
+FROM strip AS mongos
 
-RUN apk add --no-cache binutils
 COPY --from=upstream /usr/bin/mongos /usr/bin/mongos
 RUN strip /usr/bin/mongos
 

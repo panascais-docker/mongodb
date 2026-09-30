@@ -31,6 +31,10 @@ func (value configuration) equal(other configuration) bool {
 	return maps.EqualFunc(value, other, maps.Equal)
 }
 
+func (value configuration) changed(before configuration, line string) bool {
+	return !maps.Equal(value[line], before[line])
+}
+
 func readConfiguration(path string) (configuration, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {

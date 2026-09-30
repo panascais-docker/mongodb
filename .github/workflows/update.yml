@@ -9,8 +9,7 @@ jobs:
         name: update
         runs-on: blacksmith-2vcpu-ubuntu-2404
         outputs:
-            main: ${{ steps.update.outputs.result }}
-            lines: ${{ steps.lines.outputs.lines }}
+            lines: ${{ steps.update.outputs.lines }}
         steps:
             - name: pull repository
               id: repository
@@ -21,16 +20,16 @@ jobs:
               uses: actions/setup-go@v6
               with:
                   go-version-file: go.mod
+                  cache: false
 
             - name: run update script
               id: update
               run: |
-                  result=$(go run ./scripts update)
-                  echo "result=$result" >> $GITHUB_OUTPUT
+                  lines=$(go run ./scripts update)
+                  echo "lines=$lines" >> $GITHUB_OUTPUT
 
             - name: commit the changes
               id: commit
-              if: steps.update.outputs.result == 'continue'
               run: |
                   git config user.name 'github-actions[bot]'
                   git config user.email 'github-actions[bot]@users.noreply.github.com'
@@ -44,15 +43,10 @@ jobs:
                     git push origin master
                   fi
 
-            - name: read lines
-              id: lines
-              run: |
-                  echo "lines=$(jq -c 'keys' configuration/tags.json)" >> $GITHUB_OUTPUT
-
     deploy:
         name: ${{ matrix.line }}
         needs: [update]
-        if: needs.update.outputs.main == 'continue'
+        if: needs.update.outputs.lines != '[]'
         runs-on: blacksmith-2vcpu-ubuntu-2404
         timeout-minutes: 360
         strategy:
@@ -64,14 +58,8 @@ jobs:
               uses: actions/checkout@v6
               id: repository
 
-            - name: setup docker qemu
-              uses: docker/setup-qemu-action@v4
-              id: qemu
-
             - name: setup docker builder
               uses: docker/setup-buildx-action@v4
-              with:
-                  platforms: linux/amd64,linux/arm64
 
             - name: update repository
               id: update-repository
@@ -83,6 +71,7 @@ jobs:
               uses: actions/setup-go@v6
               with:
                   go-version-file: go.mod
+                  cache: false
 
             - name: build and push the docker container image
               id: build
