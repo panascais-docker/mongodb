@@ -1,6 +1,6 @@
 {
     "4.4": {
-        "ubi8": "sha256:b7ea18e78a2ef82f0886d14bc555e018c8100daf50b401d484943cf682faeaa3"
+        "ubi8": "sha256:72f4578a81dcd1142a9f516eec3d5828048f0dd16717aea02417201232897bba"
     },
     "5.0": {
         "ubi8": "sha256:6d05d3a36ed5ff7cb1a7d633efd76d7ea01e067292b1dbb4cd1d6de2afb1fb2c"
@@ -29,8 +29,8 @@
         "ubi10": "sha256:a9d7dcd4ec0dd0b9bf24c7b7f8009c387b96f6c5f6434a3ad40a12f84a6dd392"
     },
     "9.0": {
-        "ubi8": "sha256:4fa068070336f41120e8b10cd5db87dcedc248a9b9917fc97cba6a6ba29fff28",
-        "ubi9": "sha256:41e89a6a16bedbf432b875ff47d6c4262698490b366e3d1e49ed6a5b49c8d72b",
-        "ubi10": "sha256:9e3147cd2b529f9d109177a9c3491b8bb6b0f96df3760cbe269a586265d7f4f0"
+        "ubi8": "sha256:08259975e15ad9869f48a2307d50279a3c557ce936d6b5baa1ff88541ec798df",
+        "ubi9": "sha256:753b4388f68b9dcf6abf41a52d4d417b8024d85b355c6086b9c264653fdf6dcd",
+        "ubi10": "sha256:f906349bab236dd0fbbd8fb77ef7e4ff17151415e5bff3bee63d27de19a9a63e"
     }
 }
