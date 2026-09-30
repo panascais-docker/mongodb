@@ -26,9 +26,9 @@ Tags are built as `<version>[-<variant>][-<flavor>]`, and every combination exis
 | ----------- | ------------------------------------------------- | ------------------------------------------- |
 | version     | `latest`, a major `9`, a line `9.0`, a patch `9.0.2` | always required                          |
 | variant     | `-ubi8`, `-ubi9`, `-ubi10`                        | the newest ubi the line ships, bold above   |
-| flavor      | `-replica`, `-cluster`                            | a standalone `mongod`                       |
+| flavor      | `-standalone`, `-replica`, `-cluster`             | a standalone `mongod`                       |
 
-For example `9` is a standalone `mongod` on ubi10, `9-replica` a replica set on ubi10, `9.0.2-ubi9-cluster` a cluster on ubi9 and `latest-ubi8-replica` a replica set on ubi8. ubi10 needs an x86-64-v3 CPU (AVX2) on amd64, so use a `-ubi9` tag on older amd64 machines or under emulation.
+For example `9` and `9-standalone` are a standalone `mongod` on ubi10, `9-replica` a replica set on ubi10, `9.0.2-ubi9-cluster` a cluster on ubi9 and `latest-ubi8-replica` a replica set on ubi8. ubi10 needs an x86-64-v3 CPU (AVX2) on amd64, so use a `-ubi9` tag on older amd64 machines or under emulation.
 
 ## Usage
 
