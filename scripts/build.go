@@ -30,7 +30,7 @@ var (
 		{host: "quay.io", image: "quay.io/panascais/mongodb", secrets: "QUAY"},
 	}
 	flavors         = []struct{ name, suffix string }{{"standalone", ""}, {"replica", "-replica"}, {"cluster", "-cluster"}}
-	defaultVariants = []string{"ubi9", "ubi8"}
+	defaultVariants = []string{"ubi10", "ubi9", "ubi8"}
 	digestPattern   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 )
 

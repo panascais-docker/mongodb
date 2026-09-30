@@ -20,7 +20,7 @@ Small MongoDB images built from the official [`mongodb/mongodb-community-server`
 | `5.0`, `5`   | `docker pull panascais/mongodb:5.0`   | `5.0.x`              | ubi8                |
 | `4.4`, `4`   | `docker pull panascais/mongodb:4.4`   | `4.4.x`              | ubi8                |
 
-Every tag also exists per variant, for example `9.0-ubi10`, `9.0.2-ubi8`, `8-ubi9` or `latest-ubi10`. Tags without a variant use ubi9, or ubi8 where a line has no ubi9. ubi10 needs an x86-64-v3 CPU (AVX2) on amd64, so it does not run on older machines or under Rosetta.
+Every tag also exists per variant, for example `9.0-ubi10`, `9.0.2-ubi8`, `8-ubi9` or `latest-ubi10`. Tags without a variant use the newest ubi a line ships: ubi10 for 7.0, 8.0, 8.3 and 9.0, ubi9 for 6.0 and 8.2, ubi8 for 4.4 and 5.0. ubi10 needs an x86-64-v3 CPU (AVX2) on amd64, so use a `-ubi9` tag on older amd64 machines or under emulation.
 
 ## Usage
 
