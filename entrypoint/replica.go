@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"net"
 	"os"
+	"slices"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -19,11 +20,11 @@ func replicaCommand() *cobra.Command {
 	var options replicaOptions
 
 	command := &cobra.Command{
-		Use:    "replica",
+		Use:    "replica [flags] [-- mongod arguments...]",
 		Short:  "Start a single node replica set, for CI only",
 		Hidden: true,
-		Args:   cobra.NoArgs,
-		Run:    func(*cobra.Command, []string) { replica(options) },
+		Args:   cobra.ArbitraryArgs,
+		Run:    func(_ *cobra.Command, arguments []string) { replica(options, arguments) },
 	}
 
 	flags := command.Flags()
@@ -34,10 +35,10 @@ func replicaCommand() *cobra.Command {
 	return command
 }
 
-func replica(options replicaOptions) {
+func replica(options replicaOptions, arguments []string) {
 	port := strconv.Itoa(options.port)
 	mongod := withDefaults(
-		[]string{"mongod", "--replSet", options.name, "--port", port, "--dbpath", defaultDBPath, "--bind_ip_all"},
+		slices.Concat([]string{"mongod", "--replSet", options.name, "--port", port, "--dbpath", defaultDBPath, "--bind_ip_all"}, arguments),
 		mongodDefaults(defaultDBPath), replicationDefaults,
 	)
 

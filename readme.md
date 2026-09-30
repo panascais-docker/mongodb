@@ -51,9 +51,20 @@ Compared to the upstream image there is no `mongosh`, no `mongos`, no `/docker-e
 Every tag also exists with a `-replica` or `-cluster` suffix, for example `9.0-replica`, `9.0.2-ubi10-cluster` or `latest-replica`. They preconfigure a topology inside the one container, so they are meant for CI and local development, not production.
 
 - `-replica` runs a single node replica set named `rs0` (`MONGODB_REPLICA_SET`), which is enough for transactions and change streams.
-- `-cluster` runs `mongos` on 27017 with a single node config server and a single node shard behind it on the loopback interface.
+- `-cluster` runs `mongos` on 27017 with a single node config server on 27018 on the loopback interface and a single node shard named `shard` on 27019. The shard listens on all interfaces, so tests can publish 27019 and connect to it with `directConnection=true`. With a root user configured, the same user is also created on the shard itself.
 
 Both use the same mongod defaults as the plain image plus `periodicNoopIntervalSecs=1`, so change streams on an idle deployment advance within a second. Both accept `MONGODB_ROOT_USERNAME` and `MONGODB_ROOT_PASSWORD` like the plain image, `MONGODB_PORT` to move the listening port, and only turn healthy once setup has finished.
+
+Arguments after `--` go to mongod. In the cluster they go to the config server and the shard, never to `mongos`. Because they replace the image's `CMD`, name the flavor first:
+
+```sh
+docker run -d -p 27017:27017 panascais/mongodb:9.0-replica \
+    replica -- --setParameter enableTestCommands=1 --wiredTigerCacheSizeGB 0.25 --oplogSize 64
+docker run -d -p 27017:27017 -p 27019:27019 panascais/mongodb:9.0-cluster \
+    cluster -- --setParameter enableTestCommands=1 --wiredTigerCacheSizeGB 0.25 --oplogSize 64
+```
+
+Passing a default yourself overrides it, and `--setParameter` defaults are matched by parameter name, so `--setParameter enableTestCommands=1` keeps `periodicNoopIntervalSecs=1`. Leave `--port`, `--replSet`, `--dbpath` and `--bind_ip` to the entrypoint.
 
 The cluster works from anywhere, because clients only talk to `mongos`. For the replica set, drivers reconnect to the host the member advertises, so `MONGODB_REPLICA_HOST` has to be the name your clients reach the container by:
 

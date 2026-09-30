@@ -89,6 +89,7 @@ FROM base AS cluster
 
 COPY --from=mongos /usr/bin/mongos /usr/bin/mongos
 
+EXPOSE 27019
 CMD ["cluster"]
 
 # last, so a plain build is the standalone image

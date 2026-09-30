@@ -10,20 +10,43 @@ import (
 )
 
 func TestWithDefaults(t *testing.T) {
-	arguments := withDefaults(
-		[]string{"mongod", "--timeStampFormat=iso8601-local", "--wiredTigerJournalCompressor", "snappy"},
-		networkDefaults, storageDefaults, []setting{{name: "directoryperdb"}},
-	)
-
-	expected := []string{
-		"mongod", "--timeStampFormat=iso8601-local", "--wiredTigerJournalCompressor", "snappy",
-		"--networkMessageCompressors", "zstd,snappy",
-		"--wiredTigerCollectionBlockCompressor", "zstd",
-		"--directoryperdb",
-	}
-
-	if !slices.Equal(arguments, expected) {
-		t.Errorf("withDefaults() = %q, expected %q", arguments, expected)
+	for _, testCase := range []struct {
+		arguments []string
+		groups    [][]setting
+		expected  []string
+	}{
+		{
+			[]string{"mongod", "--timeStampFormat=iso8601-local", "--wiredTigerJournalCompressor", "snappy"},
+			[][]setting{networkDefaults, storageDefaults, {{name: "directoryperdb"}}},
+			[]string{
+				"mongod", "--timeStampFormat=iso8601-local", "--wiredTigerJournalCompressor", "snappy",
+				"--networkMessageCompressors", "zstd,snappy",
+				"--wiredTigerCollectionBlockCompressor", "zstd",
+				"--directoryperdb",
+			},
+		},
+		{
+			[]string{"mongod", "--setParameter", "enableTestCommands=1", "--setParameter=periodicNoopIntervalSecsExtra=1"},
+			[][]setting{replicationDefaults},
+			[]string{
+				"mongod", "--setParameter", "enableTestCommands=1", "--setParameter=periodicNoopIntervalSecsExtra=1",
+				"--setParameter", "periodicNoopIntervalSecs=1",
+			},
+		},
+		{
+			[]string{"mongod", "--setParameter", "periodicNoopIntervalSecs=5"},
+			[][]setting{replicationDefaults},
+			[]string{"mongod", "--setParameter", "periodicNoopIntervalSecs=5"},
+		},
+		{
+			[]string{"mongod", "--setParameter=periodicNoopIntervalSecs=5"},
+			[][]setting{replicationDefaults},
+			[]string{"mongod", "--setParameter=periodicNoopIntervalSecs=5"},
+		},
+	} {
+		if actual := withDefaults(slices.Clone(testCase.arguments), testCase.groups...); !slices.Equal(actual, testCase.expected) {
+			t.Errorf("withDefaults(%q) = %q, expected %q", testCase.arguments, actual, testCase.expected)
+		}
 	}
 }
 

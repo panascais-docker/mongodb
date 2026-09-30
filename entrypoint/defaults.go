@@ -78,7 +78,7 @@ func storageOptions(dbPath string) (bson.M, bool) {
 
 func withDefaults(arguments []string, groups ...[]setting) []string {
 	for _, setting := range slices.Concat(groups...) {
-		if passed(arguments, setting.name) {
+		if passed(arguments, setting) {
 			continue
 		}
 
@@ -91,8 +91,32 @@ func withDefaults(arguments []string, groups ...[]setting) []string {
 	return arguments
 }
 
-func passed(arguments []string, name string) bool {
-	return slices.ContainsFunc(arguments, func(argument string) bool {
-		return argument == "--"+name || strings.HasPrefix(argument, "--"+name+"=")
-	})
+func passed(arguments []string, setting setting) bool {
+	flag := "--" + setting.name
+	for index, argument := range arguments {
+		value, joined := strings.CutPrefix(argument, flag+"=")
+		if !joined && argument != flag {
+			continue
+		}
+
+		if setting.name != "setParameter" {
+			return true
+		}
+
+		if !joined && index+1 < len(arguments) {
+			value = arguments[index+1]
+		}
+
+		if parameterName(value) == parameterName(setting.value) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func parameterName(assignment string) string {
+	name, _, _ := strings.Cut(assignment, "=")
+
+	return name
 }
