@@ -46,7 +46,7 @@ jobs:
               uses: actions/setup-go@v6
               with:
                   go-version-file: go.mod
-                  cache: false
+                  cache: true
 
             - name: build and push the docker container image
               id: build
