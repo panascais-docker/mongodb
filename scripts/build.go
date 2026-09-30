@@ -17,15 +17,24 @@ const (
 	platforms     = "linux/amd64,linux/arm64"
 )
 
+type registry struct {
+	host    string
+	image   string
+	secrets string
+}
+
 var (
-	images          = []string{"ghcr.io/panascais-docker/mongodb/mongodb", "panascais/mongodb", "quay.io/panascais/mongodb"}
+	registries = []registry{
+		{host: "ghcr.io", image: "ghcr.io/panascais-docker/mongodb/mongodb", secrets: "CONTAINER"},
+		{image: "panascais/mongodb", secrets: "DOCKER"},
+		{host: "quay.io", image: "quay.io/panascais/mongodb", secrets: "QUAY"},
+	}
+	flavors         = []struct{ name, suffix string }{{"standalone", ""}, {"replica", "-replica"}, {"cluster", "-cluster"}}
 	defaultVariants = []string{"ubi9", "ubi8"}
-	flavors         = []string{"standalone", "replica", "cluster"}
 	digestPattern   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 )
 
 type build struct {
-	variant string
 	flavor  string
 	image   string
 	version string
@@ -72,35 +81,24 @@ func planBuilds(line string, tags, digests configuration) ([]build, error) {
 
 	var builds []build
 	for _, variant := range sortedKeys(variants) {
-		tag := variants[variant]
-		tagPattern := regexp.MustCompile(`^` + regexp.QuoteMeta(line) + `\.\d+-` + regexp.QuoteMeta(variant) + `-slim$`)
-		if !tagPattern.MatchString(tag) {
-			return nil, fmt.Errorf("invalid mongodb tag %q for %s %s", tag, line, variant)
-		}
-
-		digest := digests[line][variant]
-		if !digestPattern.MatchString(digest) {
-			return nil, fmt.Errorf("invalid mongodb digest %q for %s %s", digest, line, variant)
+		tag, digest := variants[variant], digests[line][variant]
+		if err := validatePin(line, variant, tag, digest); err != nil {
+			return nil, err
 		}
 
 		version, _, _ := strings.Cut(tag, "-")
+		names := resolveNames(tags, line, variant, version)
 
 		for _, flavor := range flavors {
-			suffix := "-" + flavor
-			if flavor == "standalone" {
-				suffix = ""
-			}
-
 			var imageTags []string
-			for _, image := range images {
-				for _, name := range resolveNames(tags, line, variant, version) {
-					imageTags = append(imageTags, image+":"+name+suffix)
+			for _, registry := range registries {
+				for _, name := range names {
+					imageTags = append(imageTags, registry.image+":"+name+flavor.suffix)
 				}
 			}
 
 			builds = append(builds, build{
-				variant: variant,
-				flavor:  flavor,
+				flavor:  flavor.name,
 				image:   repository + ":" + tag + "@" + digest,
 				version: version,
 				tags:    imageTags,
@@ -111,40 +109,53 @@ func planBuilds(line string, tags, digests configuration) ([]build, error) {
 	return builds, nil
 }
 
-func resolveNames(tags configuration, line, variant, version string) []string {
-	major, _, _ := strings.Cut(line, ".")
-
-	suffixes := []string{"-" + variant}
-	if defaultVariant(tags[line]) == variant {
-		suffixes = append(suffixes, "")
+func validatePin(line, variant, tag, digest string) error {
+	tagPattern := regexp.MustCompile(`^` + regexp.QuoteMeta(line) + `\.\d+-` + regexp.QuoteMeta(variant) + `-slim$`)
+	if !tagPattern.MatchString(tag) {
+		return fmt.Errorf("invalid mongodb tag %q for %s %s", tag, line, variant)
 	}
 
-	var names []string
-	for _, suffix := range suffixes {
-		var candidates, majorCandidates []string
-		for candidate, variants := range tags {
-			if _, found := variants[variant]; !found && suffix != "" {
-				continue
-			}
+	if !digestPattern.MatchString(digest) {
+		return fmt.Errorf("invalid mongodb digest %q for %s %s", digest, line, variant)
+	}
 
-			candidates = append(candidates, candidate)
-			if strings.HasPrefix(candidate, major+".") {
-				majorCandidates = append(majorCandidates, candidate)
-			}
-		}
+	return nil
+}
 
-		names = append(names, line+suffix, version+suffix)
+func resolveNames(tags configuration, line, variant, version string) []string {
+	lines := sortedKeys(tags)
+	withVariant := where(lines, func(candidate string) bool {
+		_, found := tags[candidate][variant]
 
-		if slices.MaxFunc(majorCandidates, compareKeys) == line {
-			names = append(names, major+suffix)
-		}
+		return found
+	})
 
-		if slices.MaxFunc(candidates, compareKeys) == line {
-			names = append(names, "latest"+suffix)
-		}
+	names := aliases(withVariant, line, version, "-"+variant)
+	if defaultVariant(tags[line]) == variant {
+		names = append(names, aliases(lines, line, version, "")...)
 	}
 
 	return names
+}
+
+func aliases(lines []string, line, version, suffix string) []string {
+	major, _, _ := strings.Cut(line, ".")
+	sameMajor := where(lines, func(candidate string) bool { return strings.HasPrefix(candidate, major+".") })
+
+	names := []string{line + suffix, version + suffix}
+	if slices.MaxFunc(sameMajor, compareKeys) == line {
+		names = append(names, major+suffix)
+	}
+
+	if slices.MaxFunc(lines, compareKeys) == line {
+		names = append(names, "latest"+suffix)
+	}
+
+	return names
+}
+
+func where(lines []string, keep func(string) bool) []string {
+	return slices.DeleteFunc(slices.Clone(lines), func(line string) bool { return !keep(line) })
 }
 
 func defaultVariant(variants map[string]string) string {
@@ -163,24 +174,32 @@ func publish(builds []build) error {
 		return err
 	}
 
+	if err := warmCache(builds, revision); err != nil {
+		return err
+	}
+
+	for _, registry := range registries {
+		if err := registry.login(); err != nil {
+			return err
+		}
+	}
+
+	for _, build := range builds {
+		if err := run("docker", build.buildx(revision, "--push", "--platform", platforms)...); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func warmCache(builds []build, revision string) error {
 	for _, build := range builds {
 		if build.flavor != "cluster" {
 			continue
 		}
 
-		if err := run("docker", buildArguments(build, revision, "--platform", platforms)...); err != nil {
-			return err
-		}
-	}
-
-	for _, registry := range []struct{ host, prefix string }{{"ghcr.io", "CONTAINER"}, {"", "DOCKER"}, {"quay.io", "QUAY"}} {
-		if err := login(registry.host, os.Getenv(registry.prefix+"_REGISTRY_USERNAME"), os.Getenv(registry.prefix+"_REGISTRY_TOKEN")); err != nil {
-			return err
-		}
-	}
-
-	for _, build := range builds {
-		if err := run("docker", buildArguments(build, revision, append([]string{"--push", "--platform", platforms}, tagArguments(build)...)...)...); err != nil {
+		if err := run("docker", build.buildx(revision, "--platform", platforms)...); err != nil {
 			return err
 		}
 	}
@@ -190,7 +209,7 @@ func publish(builds []build) error {
 
 func buildLocally(builds []build) error {
 	for _, build := range builds {
-		if err := run("docker", buildArguments(build, "local", append([]string{"--load"}, tagArguments(build)...)...)...); err != nil {
+		if err := run("docker", build.buildx("local", "--load")...); err != nil {
 			return err
 		}
 
@@ -202,7 +221,7 @@ func buildLocally(builds []build) error {
 	return nil
 }
 
-func buildArguments(build build, revision string, extra ...string) []string {
+func (build build) buildx(revision string, flags ...string) []string {
 	arguments := []string{
 		"buildx", "build",
 		"--build-arg", "BUILD_DATE=" + time.Now().UTC().Format(time.RFC3339),
@@ -213,16 +232,11 @@ func buildArguments(build build, revision string, extra ...string) []string {
 		"--progress=plain",
 	}
 
-	return append(append(arguments, extra...), ".")
-}
-
-func tagArguments(build build) []string {
-	var arguments []string
 	for _, tag := range build.tags {
 		arguments = append(arguments, "-t", tag)
 	}
 
-	return arguments
+	return slices.Concat(arguments, flags, []string{"."})
 }
 
 func verifyImage(image string) error {
@@ -259,31 +273,34 @@ func verifyContainer(image string, environment []string) error {
 	return fmt.Errorf("%s did not become healthy within %s", image, healthTimeout)
 }
 
-func login(registry, username, token string) error {
+func (registry registry) login() error {
 	arguments := []string{"login"}
-	if registry != "" {
-		arguments = append(arguments, registry)
+	if registry.host != "" {
+		arguments = append(arguments, registry.host)
 	}
 
-	command := exec.Command("docker", append(arguments, "-u", username, "--password-stdin")...)
-	command.Stdin = strings.NewReader(token)
-	command.Stdout, command.Stderr = os.Stdout, os.Stderr
+	login := command("docker", append(arguments, "-u", os.Getenv(registry.secrets+"_REGISTRY_USERNAME"), "--password-stdin")...)
+	login.Stdin = strings.NewReader(os.Getenv(registry.secrets + "_REGISTRY_TOKEN"))
 
-	return command.Run()
+	return login.Run()
+}
+
+func command(name string, arguments ...string) *exec.Cmd {
+	process := exec.Command(name, arguments...)
+	process.Stdout, process.Stderr = os.Stdout, os.Stderr
+
+	return process
 }
 
 func run(name string, arguments ...string) error {
-	command := exec.Command(name, arguments...)
-	command.Stdout, command.Stderr = os.Stdout, os.Stderr
-
-	return command.Run()
+	return command(name, arguments...).Run()
 }
 
 func output(name string, arguments ...string) (string, error) {
-	command := exec.Command(name, arguments...)
-	command.Stderr = os.Stderr
+	process := exec.Command(name, arguments...)
+	process.Stderr = os.Stderr
 
-	result, err := command.Output()
+	result, err := process.Output()
 
 	return strings.TrimSpace(string(result)), err
 }

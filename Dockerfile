@@ -8,9 +8,9 @@ ARG TARGETARCH
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
-COPY *.go ./
+COPY entrypoint ./entrypoint
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOARCH=$TARGETARCH go build -trimpath -ldflags='-s -w' -o /out/mongodb-entrypoint .
+    CGO_ENABLED=0 GOARCH=$TARGETARCH go build -trimpath -ldflags='-s -w' -o /out/mongodb-entrypoint ./entrypoint
 
 FROM ${MONGODB_IMAGE} AS upstream
 

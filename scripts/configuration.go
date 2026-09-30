@@ -46,34 +46,18 @@ func readConfiguration(path string) (configuration, error) {
 }
 
 func writeConfiguration(path string, value configuration) error {
-	var compact bytes.Buffer
-	compact.WriteByte('{')
-
-	for lineIndex, line := range sortedKeys(value) {
-		if lineIndex > 0 {
-			compact.WriteByte(',')
+	var lines []string
+	for _, line := range sortedKeys(value) {
+		var variants []string
+		for _, variant := range sortedKeys(value[line]) {
+			variants = append(variants, fmt.Sprintf("%q:%q", variant, value[line][variant]))
 		}
 
-		compact.WriteString(strconv.Quote(line))
-		compact.WriteString(":{")
-
-		for variantIndex, variant := range sortedKeys(value[line]) {
-			if variantIndex > 0 {
-				compact.WriteByte(',')
-			}
-
-			compact.WriteString(strconv.Quote(variant))
-			compact.WriteString(":")
-			compact.WriteString(strconv.Quote(value[line][variant]))
-		}
-
-		compact.WriteByte('}')
+		lines = append(lines, fmt.Sprintf("%q:{%s}", line, strings.Join(variants, ",")))
 	}
 
-	compact.WriteByte('}')
-
 	var indented bytes.Buffer
-	if err := json.Indent(&indented, compact.Bytes(), "", "    "); err != nil {
+	if err := json.Indent(&indented, []byte("{"+strings.Join(lines, ",")+"}"), "", "    "); err != nil {
 		return err
 	}
 

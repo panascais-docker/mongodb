@@ -34,6 +34,7 @@ docker run -d -p 27017:27017 \
 - `MONGODB_ROOT_USERNAME` and `MONGODB_ROOT_PASSWORD`, or `*_FILE` pointing to a secret, create a root user on first start and enable `--auth`. Without them mongod runs without auth.
 - Arguments starting with `-` go to `mongod`, for example `docker run panascais/mongodb --port 27018`. `--bind_ip_all` is added unless you pass `--bind_ip`, `--bind_ip_all` or a config file.
 - The image has a `HEALTHCHECK`. With a root user configured it only turns healthy once that user can log in.
+- mongod starts with `--networkMessageCompressors zstd,snappy`, `--timeStampFormat iso8601-utc`, `--wiredTigerJournalCompressor zstd` and `--wiredTigerCollectionBlockCompressor zstd`. A new data directory also gets `--directoryperdb` and `--wiredTigerDirectoryForIndexes`, an existing one keeps the layout it was created with. Passing a flag yourself overrides its default, and a config file replaces all of them.
 
 Compared to the upstream image there is no `mongosh`, no `mongos`, no `/docker-entrypoint-initdb.d` and none of the `MONGODB_INITDB_*` variables. Connect with `mongosh` from your host or another container.
 
@@ -44,7 +45,7 @@ Every tag also exists with a `-replica` or `-cluster` suffix, for example `9.0-r
 - `-replica` runs a single node replica set named `rs0` (`MONGODB_REPLICA_SET`), which is enough for transactions and change streams.
 - `-cluster` runs `mongos` on 27017 with a single node config server and a single node shard behind it on the loopback interface.
 
-Both accept `MONGODB_ROOT_USERNAME` and `MONGODB_ROOT_PASSWORD` like the plain image, `MONGODB_PORT` to move the listening port, and only turn healthy once setup has finished.
+Both use the same mongod defaults as the plain image plus `periodicNoopIntervalSecs=1`, so change streams on an idle deployment advance within a second. Both accept `MONGODB_ROOT_USERNAME` and `MONGODB_ROOT_PASSWORD` like the plain image, `MONGODB_PORT` to move the listening port, and only turn healthy once setup has finished.
 
 The cluster works from anywhere, because clients only talk to `mongos`. For the replica set, drivers reconnect to the host the member advertises, so `MONGODB_REPLICA_HOST` has to be the name your clients reach the container by:
 
@@ -61,6 +62,11 @@ Clients that need to connect from both sides at once can add `directConnection=t
 Linux 6.19 through 7.0.13 crash mongod while tcmalloc uses per-CPU caches, and upstream's entrypoint refuses to start on any kernel from 6.19 on. On affected kernels this image prints a warning and sets `GLIBC_TUNABLES=glibc.pthread.rseq=1`, so tcmalloc falls back to per-thread caches. Elsewhere it sets `glibc.pthread.rseq=0`. A `glibc.pthread.rseq` value you set yourself always wins.
 
 ## Build
+
+The repository holds two Go programs in one module:
+
+- `entrypoint/` is the image entrypoint, built into `/usr/local/bin/mongodb-entrypoint` by the `Dockerfile`.
+- `scripts/` builds the images and keeps the upstream pins in `configuration/` current.
 
 ```sh
 go run ./scripts build 9.0

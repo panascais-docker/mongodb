@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -11,7 +12,7 @@ import (
 	"github.com/oklog/run"
 )
 
-func serve(processes [][]string, environment []string, setup func(context.Context) error) {
+func serve(environment []string, processes [][]string, steps ...step) {
 	var group run.Group
 	group.Add(run.SignalHandler(context.Background(), syscall.SIGINT, syscall.SIGTERM))
 
@@ -22,15 +23,11 @@ func serve(processes [][]string, environment []string, setup func(context.Contex
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-
-	var setupErr error
 	group.Add(func() error {
-		if err := setup(ctx); err != nil {
-			if ctx.Err() == nil {
-				setupErr = err
+		for _, step := range steps {
+			if err := step(ctx); err != nil {
+				return fmt.Errorf("setting up: %w", err)
 			}
-
-			return err
 		}
 
 		<-ctx.Done()
@@ -38,12 +35,7 @@ func serve(processes [][]string, environment []string, setup func(context.Contex
 		return nil
 	}, func(error) { cancel() })
 
-	err := group.Run()
-	if setupErr != nil {
-		log.Fatalf("setting up: %v", setupErr)
-	}
-
-	os.Exit(exitCode(err))
+	os.Exit(exitCode(group.Run()))
 }
 
 func supervise(group *run.Group, arguments, environment []string) error {
@@ -55,17 +47,19 @@ func supervise(group *run.Group, arguments, environment []string) error {
 		return err
 	}
 
-	// mongos is stateless and drains for 15s on SIGTERM, longer than docker stop waits
-	stop := syscall.SIGTERM
-	if arguments[0] == "mongos" {
-		stop = syscall.SIGKILL
-	}
-
 	group.Add(command.Wait, func(error) {
-		_ = command.Process.Signal(stop)
+		_ = command.Process.Signal(stopSignal(arguments[0]))
 	})
 
 	return nil
+}
+
+func stopSignal(program string) syscall.Signal {
+	if program == "mongos" {
+		return syscall.SIGKILL
+	}
+
+	return syscall.SIGTERM
 }
 
 func exitCode(err error) int {
@@ -75,6 +69,8 @@ func exitCode(err error) int {
 
 	exitError, exited := errors.AsType[*exec.ExitError](err)
 	if !exited {
+		log.Print(err)
+
 		return 1
 	}
 

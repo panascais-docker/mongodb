@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -12,7 +13,7 @@ const (
 	rseqTunable      = "glibc.pthread.rseq="
 )
 
-func processEnvironment() []string {
+func mongodEnvironment() []string {
 	release := kernelRelease()
 
 	environment, affected := applyRseqTunable(os.Environ(), release)
@@ -46,24 +47,21 @@ func applyRseqTunable(environment []string, release string) ([]string, bool) {
 		tunable = rseqTunable + "1"
 	}
 
-	for index, entry := range environment {
-		tunables, found := strings.CutPrefix(entry, tunablesVariable)
-		if !found {
-			continue
-		}
-
-		if strings.Contains(tunables, rseqTunable) {
-			return environment, affected
-		}
-
-		if tunables != "" {
-			tunable = tunables + ":" + tunable
-		}
-
-		environment = append(environment[:index:index], environment[index+1:]...)
-
-		break
+	index := slices.IndexFunc(environment, func(entry string) bool { return strings.HasPrefix(entry, tunablesVariable) })
+	if index < 0 {
+		return append(environment, tunablesVariable+tunable), affected
 	}
 
-	return append(environment, tunablesVariable+tunable), affected
+	tunables := strings.TrimPrefix(environment[index], tunablesVariable)
+	if strings.Contains(tunables, rseqTunable) {
+		return environment, affected
+	}
+
+	if tunables != "" {
+		tunable = tunables + ":" + tunable
+	}
+
+	environment[index] = tunablesVariable + tunable
+
+	return environment, affected
 }

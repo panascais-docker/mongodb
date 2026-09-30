@@ -8,12 +8,20 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
-func healthcheck() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func healthcheckCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "healthcheck",
+		Short: "Ping mongod, logging in when a root user is configured",
+		Args:  cobra.NoArgs,
+		RunE:  func(*cobra.Command, []string) error { return healthcheck() },
+	}
+}
 
+func healthcheck() error {
 	port, err := healthcheckPort()
 	if err != nil {
 		return err
@@ -24,6 +32,9 @@ func healthcheck() error {
 		return err
 	}
 	defer func() { _ = client.Disconnect(context.Background()) }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
 	return client.Ping(ctx, nil)
 }
