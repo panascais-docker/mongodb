@@ -8,19 +8,27 @@
 
 Small MongoDB images built from the official [`mongodb/mongodb-community-server`](https://hub.docker.com/r/mongodb/mongodb-community-server) slim images. They keep upstream's Red Hat UBI micro filesystem, strip `mongod` and replace the entrypoint with a single Go binary.
 
-| **Tag:**     | **Command:**                          | **MongoDB Version:** | **Variants:**       |
-| ------------ | ------------------------------------- | -------------------- | ------------------- |
-| `latest`     | `docker pull panascais/mongodb`       | `9.0.x`              | ubi8, ubi9, ubi10   |
-| `9.0`, `9`   | `docker pull panascais/mongodb:9.0`   | `9.0.x`              | ubi8, ubi9, ubi10   |
-| `8.3`, `8`   | `docker pull panascais/mongodb:8.3`   | `8.3.x`              | ubi8, ubi9, ubi10   |
-| `8.2`        | `docker pull panascais/mongodb:8.2`   | `8.2.x`              | ubi8, ubi9          |
-| `8.0`        | `docker pull panascais/mongodb:8.0`   | `8.0.x`              | ubi8, ubi9, ubi10   |
-| `7.0`, `7`   | `docker pull panascais/mongodb:7.0`   | `7.0.x`              | ubi8, ubi9, ubi10   |
-| `6.0`, `6`   | `docker pull panascais/mongodb:6.0`   | `6.0.x`              | ubi8, ubi9          |
-| `5.0`, `5`   | `docker pull panascais/mongodb:5.0`   | `5.0.x`              | ubi8                |
-| `4.4`, `4`   | `docker pull panascais/mongodb:4.4`   | `4.4.x`              | ubi8                |
+| **Tag:**     | **Command:**                          | **MongoDB Version:** | **Variants:**         | **Flavors:**                     |
+| ------------ | ------------------------------------- | -------------------- | --------------------- | -------------------------------- |
+| `latest`     | `docker pull panascais/mongodb`       | `9.0.x`              | ubi8, ubi9, **ubi10** | standalone, `-replica`, `-cluster` |
+| `9.0`, `9`   | `docker pull panascais/mongodb:9.0`   | `9.0.x`              | ubi8, ubi9, **ubi10** | standalone, `-replica`, `-cluster` |
+| `8.3`, `8`   | `docker pull panascais/mongodb:8.3`   | `8.3.x`              | ubi8, ubi9, **ubi10** | standalone, `-replica`, `-cluster` |
+| `8.2`        | `docker pull panascais/mongodb:8.2`   | `8.2.x`              | ubi8, **ubi9**        | standalone, `-replica`, `-cluster` |
+| `8.0`        | `docker pull panascais/mongodb:8.0`   | `8.0.x`              | ubi8, ubi9, **ubi10** | standalone, `-replica`, `-cluster` |
+| `7.0`, `7`   | `docker pull panascais/mongodb:7.0`   | `7.0.x`              | ubi8, ubi9, **ubi10** | standalone, `-replica`, `-cluster` |
+| `6.0`, `6`   | `docker pull panascais/mongodb:6.0`   | `6.0.x`              | ubi8, **ubi9**        | standalone, `-replica`, `-cluster` |
+| `5.0`, `5`   | `docker pull panascais/mongodb:5.0`   | `5.0.x`              | **ubi8**              | standalone, `-replica`, `-cluster` |
+| `4.4`, `4`   | `docker pull panascais/mongodb:4.4`   | `4.4.x`              | **ubi8**              | standalone, `-replica`, `-cluster` |
 
-Every tag also exists per variant, for example `9.0-ubi10`, `9.0.2-ubi8`, `8-ubi9` or `latest-ubi10`. Tags without a variant use the newest ubi a line ships: ubi10 for 7.0, 8.0, 8.3 and 9.0, ubi9 for 6.0 and 8.2, ubi8 for 4.4 and 5.0. ubi10 needs an x86-64-v3 CPU (AVX2) on amd64, so use a `-ubi9` tag on older amd64 machines or under emulation.
+Tags are built as `<version>[-<variant>][-<flavor>]`, and every combination exists:
+
+| **Part:**   | **Values:**                                       | **When left out:**                          |
+| ----------- | ------------------------------------------------- | ------------------------------------------- |
+| version     | `latest`, a major `9`, a line `9.0`, a patch `9.0.2` | always required                          |
+| variant     | `-ubi8`, `-ubi9`, `-ubi10`                        | the newest ubi the line ships, bold above   |
+| flavor      | `-replica`, `-cluster`                            | a standalone `mongod`                       |
+
+For example `9` is a standalone `mongod` on ubi10, `9-replica` a replica set on ubi10, `9.0.2-ubi9-cluster` a cluster on ubi9 and `latest-ubi8-replica` a replica set on ubi8. ubi10 needs an x86-64-v3 CPU (AVX2) on amd64, so use a `-ubi9` tag on older amd64 machines or under emulation.
 
 ## Usage
 
