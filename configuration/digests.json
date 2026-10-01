@@ -1,36 +1,36 @@
 {
     "4.4": {
-        "ubi8": "sha256:b7ea18e78a2ef82f0886d14bc555e018c8100daf50b401d484943cf682faeaa3"
+        "ubi8": "sha256:be5f41ff39f246d5ee2c79dfa1912522be3d0194e92b493b4c0de7dd25879653"
     },
     "5.0": {
-        "ubi8": "sha256:6d05d3a36ed5ff7cb1a7d633efd76d7ea01e067292b1dbb4cd1d6de2afb1fb2c"
+        "ubi8": "sha256:08e6e244e76671b67ced5977d0ef3fbde160378639b0bc34031cdaa1f35c26c0"
     },
     "6.0": {
-        "ubi8": "sha256:2c36f4842eeb23bbd1caab9b8e07970a4b1a9eb874e91954143f606dae37cbe9",
-        "ubi9": "sha256:81e6ab8bd552301b84b7f5aa8b1f46adab896c9b532608ff90e177163a92e51e"
+        "ubi8": "sha256:39eb146bbabb19d9563fabdc99ae7ebe763d23e5dbff01a688120fe721387bdf",
+        "ubi9": "sha256:410569ad0ccbdf732cc12c2ca8ef2123b4dda39064a23688b1199a3c8173a184"
     },
     "7.0": {
-        "ubi8": "sha256:e70cd99a891938dd10f65ca9a4a05f6a4e36d19cf1875b18ac7f30f0b7a0f3c3",
-        "ubi9": "sha256:056eee768b08613e4b16dd6a68a8f0aa7b22167f32a6e7f9b87eb5e15d9799ab",
-        "ubi10": "sha256:7bda66217aa5631f8c83147c9c5448f98ce00d399b9ce85c38d819c8defd2a3a"
+        "ubi8": "sha256:d2aa5f927d7eca2e6b2c082bf2cd434d024793fa77fdc4b87e795bd5714fbcb5",
+        "ubi9": "sha256:ef00aee6bafe14dbdac5cbf46253ff89c5b03f1bbf129677be38ebee3fa27fe5",
+        "ubi10": "sha256:96980738231d38dce0fdf743ab631efc2c83e971bbac92e63a78298e25efa6c3"
     },
     "8.0": {
-        "ubi8": "sha256:f6b0bc2bb0befc04cde010a8cfeb64fb1b362169916c7f57b4713e9539261ed4",
-        "ubi9": "sha256:67fbda8e00b63557d4bb797cb85324f456aa3c001bbb2528acdb969a1261c2a2",
-        "ubi10": "sha256:1e7042151201b41b570355cdd9db4d60e19205df1d96a80f99aa8baf1e831206"
+        "ubi8": "sha256:9d33deb8873323e45096e9186a0a1b5c5c1a83626f39f6508211f292b015795f",
+        "ubi9": "sha256:dd215383b3f5d493c7d795f36fdab629916c85877c57a87ba3ed8d4a88c50edb",
+        "ubi10": "sha256:a02da0cdcf06ccf0c540dee360fd10fa94bfe3cdacd95516ff996b18fb949011"
     },
     "8.2": {
         "ubi8": "sha256:0a73b90009f6ec341bfd22898a6024474db94ae9e7c1ffec926311e4742dfe4b",
         "ubi9": "sha256:fb23449a88d6a0ca207a17599f0aee10bdb40024b617d121b1a3ae74b3b7f184"
     },
     "8.3": {
-        "ubi8": "sha256:6457df4c2d0587ae4d0dbf591f5b1e2541599ba173c93d005531b05edd424369",
-        "ubi9": "sha256:dd5e77dc591a2a30db317664417b9f157d0556f9229bf7bacd0a178b3867536f",
-        "ubi10": "sha256:a9d7dcd4ec0dd0b9bf24c7b7f8009c387b96f6c5f6434a3ad40a12f84a6dd392"
+        "ubi8": "sha256:a4b8928fbbd59b6bb9414fca60f331b24c8ca2ad3fab8e00757c3e4429ff996b",
+        "ubi9": "sha256:561d784bb47983ef3c24a724b95475cf7c7104b8ba480d6f8d6071324f457bc5",
+        "ubi10": "sha256:528e45e34091c0032d7cd2fdc648006f2744dca261001e64b4f1768089c29744"
     },
     "9.0": {
-        "ubi8": "sha256:4fa068070336f41120e8b10cd5db87dcedc248a9b9917fc97cba6a6ba29fff28",
-        "ubi9": "sha256:41e89a6a16bedbf432b875ff47d6c4262698490b366e3d1e49ed6a5b49c8d72b",
-        "ubi10": "sha256:9e3147cd2b529f9d109177a9c3491b8bb6b0f96df3760cbe269a586265d7f4f0"
+        "ubi8": "sha256:c1aabffd086e75578a2efcefb799fa1755899c019573cb59f1c256adfdab1bb2",
+        "ubi9": "sha256:61815ade502700d80a67782a68d294aea7daed1beb5dad3badf4b2dbbd7be1ed",
+        "ubi10": "sha256:fb6d8ea60cbdb4c79ef42ca2ef96957f5f4e7151d113a3ac75bda093a7ea0a02"
     }
 }
