@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -12,9 +13,10 @@ import (
 )
 
 const (
-	digestsFile = "configuration/digests.json"
-	tagsFile    = "configuration/tags.json"
-	repository  = "mongodb/mongodb-community-server"
+	buildersFile = "configuration/builders.json"
+	digestsFile  = "configuration/digests.json"
+	tagsFile     = "configuration/tags.json"
+	repository   = "mongodb/mongodb-community-server"
 )
 
 type configuration map[string]map[string]string
@@ -75,7 +77,7 @@ func sortedKeys[Value any](record map[string]Value) []string {
 }
 
 func compareKeys(left, right string) int {
-	return slices.Compare(keyNumbers(left), keyNumbers(right))
+	return cmp.Or(slices.Compare(keyNumbers(left), keyNumbers(right)), strings.Compare(left, right))
 }
 
 func keyNumbers(key string) []int {

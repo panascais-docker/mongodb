@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1
+ARG ALPINE_IMAGE=alpine:3.24
+ARG GOLANG_IMAGE=golang:1.27-alpine
 ARG MONGODB_IMAGE=mongodb/mongodb-community-server:9.0-ubi10-slim
 
-FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS entrypoint
+FROM --platform=$BUILDPLATFORM ${GOLANG_IMAGE} AS entrypoint
 
 ARG TARGETARCH
 
@@ -14,7 +16,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 FROM ${MONGODB_IMAGE} AS upstream
 
-FROM --platform=$BUILDPLATFORM alpine:3.24 AS strip
+FROM --platform=$BUILDPLATFORM ${ALPINE_IMAGE} AS strip
 
 ARG TARGETARCH
 

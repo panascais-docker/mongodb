@@ -7,17 +7,23 @@ import (
 )
 
 func TestChangedLines(t *testing.T) {
+	buildersBefore := configuration{"golang": {"1.27-alpine": "sha256:f"}}
 	digestsBefore := configuration{"8.0": {"ubi9": "sha256:a"}, "9.0": {"ubi9": "sha256:b"}, "4.4": {"ubi8": "sha256:c"}}
 	tagsBefore := configuration{"8.0": {"ubi9": "8.0.1-ubi9-slim"}, "9.0": {"ubi9": "9.0.1-ubi9-slim"}, "4.4": {"ubi8": "4.4.1-ubi8-slim"}}
 
+	builders := configuration{"golang": {"1.27-alpine": "sha256:g"}}
 	digests := configuration{"8.0": {"ubi9": "sha256:a"}, "9.0": {"ubi9": "sha256:d"}, "9.1": {"ubi9": "sha256:e"}}
 	tags := configuration{"8.0": {"ubi9": "8.0.1-ubi9-slim"}, "9.0": {"ubi9": "9.0.1-ubi9-slim"}, "9.1": {"ubi9": "9.1.0-ubi9-slim"}}
 
-	if lines := changedLines(digests, tags, digestsBefore, tagsBefore); !slices.Equal(lines, []string{"9.0", "9.1"}) {
+	if lines := changedLines(buildersBefore, digests, tags, buildersBefore, digestsBefore, tagsBefore); !slices.Equal(lines, []string{"9.0", "9.1"}) {
 		t.Errorf("changedLines() = %v, expected [9.0 9.1]", lines)
 	}
 
-	if lines := changedLines(digests, tags, digests, tags); lines == nil || len(lines) != 0 {
+	if lines := changedLines(builders, digests, tags, buildersBefore, digests, tags); !slices.Equal(lines, []string{"8.0", "9.0", "9.1"}) {
+		t.Errorf("changedLines() = %v, expected [8.0 9.0 9.1]", lines)
+	}
+
+	if lines := changedLines(builders, digests, tags, builders, digests, tags); lines == nil || len(lines) != 0 {
 		t.Errorf("changedLines() = %#v, expected an empty non-nil slice", lines)
 	}
 }

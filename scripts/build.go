@@ -48,12 +48,13 @@ var (
 )
 
 type build struct {
-	flavor  string
-	image   string
-	variant string
-	version string
-	tags    []string
-	command []string
+	flavor   string
+	image    string
+	variant  string
+	version  string
+	builders map[string]string
+	tags     []string
+	command  []string
 }
 
 type bakeFile struct {
@@ -93,7 +94,12 @@ func buildLine(line string) error {
 		return err
 	}
 
-	builds, err := planBuilds(line, tags, digests)
+	builders, err := readConfiguration(buildersFile)
+	if err != nil {
+		return err
+	}
+
+	builds, err := planBuilds(line, tags, digests, builders)
 	if err != nil {
 		return err
 	}
@@ -105,10 +111,15 @@ func buildLine(line string) error {
 	return buildLocally(builds)
 }
 
-func planBuilds(line string, tags, digests configuration) ([]build, error) {
+func planBuilds(line string, tags, digests, builders configuration) ([]build, error) {
 	variants, found := tags[line]
 	if !found {
 		return nil, fmt.Errorf("invalid line %q, expected one of %s", line, strings.Join(sortedKeys(tags), ", "))
+	}
+
+	images, err := builderImages(builders)
+	if err != nil {
+		return nil, err
 	}
 
 	var builds []build
@@ -132,12 +143,13 @@ func planBuilds(line string, tags, digests configuration) ([]build, error) {
 			}
 
 			builds = append(builds, build{
-				flavor:  flavor.name,
-				image:   repository + ":" + tag + "@" + digest,
-				variant: variant,
-				version: version,
-				tags:    imageTags,
-				command: flavor.command,
+				flavor:   flavor.name,
+				image:    repository + ":" + tag + "@" + digest,
+				variant:  variant,
+				version:  version,
+				builders: images,
+				tags:     imageTags,
+				command:  flavor.command,
 			})
 		}
 	}
@@ -156,6 +168,25 @@ func validatePin(line, variant, tag, digest string) error {
 	}
 
 	return nil
+}
+
+func builderImages(builders configuration) (map[string]string, error) {
+	images := map[string]string{}
+	for image, tags := range builders {
+		if len(tags) != 1 {
+			return nil, fmt.Errorf("invalid builder %s, expected exactly one tag", image)
+		}
+
+		for tag, digest := range tags {
+			if !digestPattern.MatchString(digest) {
+				return nil, fmt.Errorf("invalid builder digest %q for %s:%s", digest, image, tag)
+			}
+
+			images[strings.ToUpper(image)+"_IMAGE"] = image + ":" + tag + "@" + digest
+		}
+	}
+
+	return images, nil
 }
 
 func resolveNames(tags configuration, line, variant, version string) []string {
@@ -252,13 +283,16 @@ func bakeDefinition(builds []build, revision string, platforms []string) ([]byte
 
 	targets := make(map[string]bakeTarget, len(builds))
 	for _, build := range builds {
+		arguments := map[string]string{
+			"BUILD_DATE":      date,
+			"MONGODB_IMAGE":   build.image,
+			"MONGODB_VERSION": build.version,
+			"VCS_REF":         revision,
+		}
+		maps.Copy(arguments, build.builders)
+
 		targets[build.variant+"-"+build.flavor] = bakeTarget{
-			Args: map[string]string{
-				"BUILD_DATE":      date,
-				"MONGODB_IMAGE":   build.image,
-				"MONGODB_VERSION": build.version,
-				"VCS_REF":         revision,
-			},
+			Args:      arguments,
 			Context:   ".",
 			Platforms: platforms,
 			Tags:      build.tags,

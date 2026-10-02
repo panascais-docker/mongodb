@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -42,6 +43,11 @@ func update(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
+	buildersBefore, err := readConfiguration(buildersFile)
+	if err != nil {
+		return err
+	}
+
 	digestsBefore, err := readConfiguration(digestsFile)
 	if err != nil {
 		return err
@@ -62,10 +68,19 @@ func update(ctx context.Context) error {
 		return err
 	}
 
-	if digests.equal(digestsBefore) && tags.equal(tagsBefore) {
+	builders, err := resolveBuilders(ctx, buildersBefore)
+	if err != nil {
+		return err
+	}
+
+	if builders.equal(buildersBefore) && digests.equal(digestsBefore) && tags.equal(tagsBefore) {
 		fmt.Println("[]")
 
 		return nil
+	}
+
+	if err := writeConfiguration(buildersFile, builders); err != nil {
+		return err
 	}
 
 	if err := writeConfiguration(digestsFile, digests); err != nil {
@@ -76,7 +91,7 @@ func update(ctx context.Context) error {
 		return err
 	}
 
-	lines, err := json.Marshal(changedLines(digests, tags, digestsBefore, tagsBefore))
+	lines, err := json.Marshal(changedLines(builders, digests, tags, buildersBefore, digestsBefore, tagsBefore))
 	if err != nil {
 		return err
 	}
@@ -86,10 +101,12 @@ func update(ctx context.Context) error {
 	return nil
 }
 
-func changedLines(digests, tags, digestsBefore, tagsBefore configuration) []string {
+func changedLines(builders, digests, tags, buildersBefore, digestsBefore, tagsBefore configuration) []string {
+	rebuild := !builders.equal(buildersBefore)
+
 	lines := []string{}
 	for _, line := range sortedKeys(tags) {
-		if digests.changed(digestsBefore, line) || tags.changed(tagsBefore, line) {
+		if rebuild || digests.changed(digestsBefore, line) || tags.changed(tagsBefore, line) {
 			lines = append(lines, line)
 		}
 	}
@@ -101,7 +118,7 @@ func resolvePins(ctx context.Context, releases map[string]map[string]release, di
 	digests, tags := configuration{}, configuration{}
 	for line, variants := range releases {
 		for variant, release := range variants {
-			digest, err := fetchDigest(ctx, release.tag, digestsBefore[line][variant])
+			digest, err := fetchDigest(ctx, repository, release.tag, digestsBefore[line][variant])
 			if err != nil {
 				return nil, nil, err
 			}
@@ -121,6 +138,22 @@ func resolvePins(ctx context.Context, releases map[string]map[string]release, di
 	}
 
 	return digests, tags, nil
+}
+
+func resolveBuilders(ctx context.Context, buildersBefore configuration) (configuration, error) {
+	builders := configuration{}
+	for image, tags := range buildersBefore {
+		for tag, pinned := range tags {
+			digest, err := fetchDigest(ctx, "library/"+image, tag, pinned)
+			if err != nil {
+				return nil, err
+			}
+
+			builders.set(image, tag, cmp.Or(digest, pinned))
+		}
+	}
+
+	return builders, nil
 }
 
 func resolveReleases(names []string) map[string]map[string]release {
@@ -146,13 +179,13 @@ func resolveReleases(names []string) map[string]map[string]release {
 	return releases
 }
 
-func fetchDigest(ctx context.Context, tag, pinned string) (string, error) {
-	head, err := crane.Head(repository+":"+tag, dockerHub(ctx)...)
+func fetchDigest(ctx context.Context, image, tag, pinned string) (string, error) {
+	head, err := crane.Head(image+":"+tag, dockerHub(ctx)...)
 	if err != nil || head.Digest.String() == pinned {
 		return pinned, err
 	}
 
-	manifest, err := crane.Manifest(repository+"@"+head.Digest.String(), dockerHub(ctx)...)
+	manifest, err := crane.Manifest(image+"@"+head.Digest.String(), dockerHub(ctx)...)
 	if err != nil {
 		return "", err
 	}

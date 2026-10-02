@@ -1,7 +1,9 @@
 package main
 
 import (
+	"maps"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -27,6 +29,26 @@ func TestResolveNames(t *testing.T) {
 	} {
 		if actual := resolveNames(tags, testCase.line, testCase.variant, testCase.version); !slices.Equal(actual, testCase.expected) {
 			t.Errorf("resolveNames(%s, %s) = %q, expected %q", testCase.line, testCase.variant, actual, testCase.expected)
+		}
+	}
+}
+
+func TestBuilderImages(t *testing.T) {
+	digest := "sha256:" + strings.Repeat("a", 64)
+
+	for _, testCase := range []struct {
+		builders configuration
+		expected map[string]string
+	}{
+		{
+			configuration{"alpine": {"3.24": digest}, "golang": {"1.27-alpine": digest}},
+			map[string]string{"ALPINE_IMAGE": "alpine:3.24@" + digest, "GOLANG_IMAGE": "golang:1.27-alpine@" + digest},
+		},
+		{configuration{"alpine": {"3.24": ""}}, nil},
+		{configuration{"alpine": {"3.23": digest, "3.24": digest}}, nil},
+	} {
+		if actual, err := builderImages(testCase.builders); !maps.Equal(actual, testCase.expected) || (err == nil) != (testCase.expected != nil) {
+			t.Errorf("builderImages(%v) = %v, %v, expected %v", testCase.builders, actual, err, testCase.expected)
 		}
 	}
 }

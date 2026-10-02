@@ -91,7 +91,7 @@ The repository holds two Go programs in one module:
 go run ./scripts build 9.0
 ```
 
-This builds every variant and flavor of a line for the local architecture and waits for each image to become healthy, once without and once with a root user. `configuration/tags.json` and `configuration/digests.json` pin the upstream images by digest, and `go run ./scripts update` refreshes them.
+This builds every variant and flavor of a line for the local architecture and waits for each image to become healthy, once without and once with a root user. `configuration/tags.json` and `configuration/digests.json` pin the upstream images by digest, `configuration/builders.json` pins the `golang` and `alpine` images the `Dockerfile` builds with, and `go run ./scripts update` refreshes them. A new builder digest rebuilds every line.
 
 ## Contributors
 
