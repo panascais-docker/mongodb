@@ -3,9 +3,11 @@ package main
 import (
 	"log"
 	"net"
+	"os"
 	"os/exec"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -47,15 +49,15 @@ func cluster(port int, arguments []string) {
 
 	launch(port, [][]string{
 		withDefaults(
-			slices.Concat([]string{"mongod", "--configsvr", "--replSet", "config", "--port", strconv.Itoa(configServerPort), "--dbpath", configDBPath, "--bind_ip", loopback}, arguments),
+			slices.Concat([]string{"mongod", "--configsvr", "--replSet", "config", "--port", strconv.Itoa(configServerPort), "--dbpath", configDBPath, "--bind_ip", loopback}, processArguments("MONGODB_CONFIG_ARGUMENTS", arguments)),
 			mongodDefaults(configDBPath), replicationDefaults,
 		),
 		withDefaults(
-			slices.Concat([]string{"mongod", "--shardsvr", "--replSet", "shard", "--port", strconv.Itoa(shardPort), "--dbpath", defaultDBPath, "--bind_ip_all"}, arguments),
+			slices.Concat([]string{"mongod", "--shardsvr", "--replSet", "shard", "--port", strconv.Itoa(shardPort), "--dbpath", defaultDBPath, "--bind_ip_all"}, processArguments("MONGODB_SHARD_ARGUMENTS", arguments)),
 			mongodDefaults(defaultDBPath), replicationDefaults,
 		),
 		withDefaults(
-			[]string{"mongos", "--configdb", "config/" + configServer, "--port", strconv.Itoa(port), "--bind_ip_all"},
+			slices.Concat([]string{"mongos", "--configdb", "config/" + configServer, "--port", strconv.Itoa(port), "--bind_ip_all"}, processArguments("MONGODB_ROUTER_ARGUMENTS", nil)),
 			networkDefaults,
 		),
 	},
@@ -64,4 +66,8 @@ func cluster(port int, arguments []string) {
 		addShard(port, "shard/"+shard),
 		createRoot(shardPort, loadRootCredential()),
 	)
+}
+
+func processArguments(name string, shared []string) []string {
+	return override(shared, strings.Fields(os.Getenv(name)))
 }

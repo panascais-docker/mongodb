@@ -50,6 +50,34 @@ func TestWithDefaults(t *testing.T) {
 	}
 }
 
+func TestOverride(t *testing.T) {
+	for _, testCase := range []struct {
+		arguments []string
+		overrides []string
+		expected  []string
+	}{
+		{
+			[]string{"--wiredTigerCacheSizeGB", "5.5", "--quiet"},
+			nil,
+			[]string{"--wiredTigerCacheSizeGB", "5.5", "--quiet"},
+		},
+		{
+			[]string{"--wiredTigerCacheSizeGB", "5.5", "--quiet", "--oplogSize=64"},
+			[]string{"--wiredTigerCacheSizeGB=0.5", "--oplogSize", "32"},
+			[]string{"--quiet", "--wiredTigerCacheSizeGB=0.5", "--oplogSize", "32"},
+		},
+		{
+			[]string{"--quiet", "--setParameter", "enableTestCommands=1", "--setParameter=periodicNoopIntervalSecs=5"},
+			[]string{"--quiet", "--setParameter", "periodicNoopIntervalSecs=2"},
+			[]string{"--setParameter", "enableTestCommands=1", "--quiet", "--setParameter", "periodicNoopIntervalSecs=2"},
+		},
+	} {
+		if actual := override(testCase.arguments, testCase.overrides); !slices.Equal(actual, testCase.expected) {
+			t.Errorf("override(%q, %q) = %q, expected %q", testCase.arguments, testCase.overrides, actual, testCase.expected)
+		}
+	}
+}
+
 func TestLayoutDefaults(t *testing.T) {
 	for _, testCase := range []struct {
 		name     string

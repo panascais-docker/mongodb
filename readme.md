@@ -64,7 +64,14 @@ docker run -d -p 27017:27017 -p 27019:27019 panascais/mongodb:9.0-cluster \
     cluster -- --setParameter enableTestCommands=1 --wiredTigerCacheSizeGB 0.25 --oplogSize 64
 ```
 
-Passing a default yourself overrides it, and `--setParameter` defaults are matched by parameter name, so `--setParameter enableTestCommands=1` keeps `periodicNoopIntervalSecs=1`. Leave `--port`, `--replSet`, `--dbpath` and `--bind_ip` to the entrypoint.
+To give one cluster process its own arguments, set `MONGODB_CONFIG_ARGUMENTS`, `MONGODB_SHARD_ARGUMENTS` or `MONGODB_ROUTER_ARGUMENTS`. They are split on whitespace and added after the `--` arguments. A flag set in both replaces the `--` one for that process, since mongod refuses a flag given twice. This caps the config server's cache below the shard's:
+
+```sh
+docker run -d -p 27017:27017 -e MONGODB_CONFIG_ARGUMENTS='--wiredTigerCacheSizeGB 0.5' \
+    panascais/mongodb:9.0-cluster cluster -- --wiredTigerCacheSizeGB 5.5
+```
+
+Passing a default yourself overrides it, and `--setParameter` defaults are matched by parameter name, so `--setParameter enableTestCommands=1` keeps `periodicNoopIntervalSecs=1`. The same name matching applies when a per-process `--setParameter` replaces a `--` one. Leave `--port`, `--replSet`, `--dbpath`, `--bind_ip` and `--configdb` to the entrypoint.
 
 The cluster works from anywhere, because clients only talk to `mongos`. For the replica set, drivers reconnect to the host the member advertises, so `MONGODB_REPLICA_HOST` has to be the name your clients reach the container by:
 

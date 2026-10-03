@@ -115,6 +115,25 @@ func passed(arguments []string, setting setting) bool {
 	return false
 }
 
+func override(arguments, overrides []string) []string {
+	var kept []string
+	for index := 0; index < len(arguments); index++ {
+		group := arguments[index : index+1]
+		name, value, joined := strings.Cut(arguments[index], "=")
+		if !joined && index+1 < len(arguments) && !strings.HasPrefix(arguments[index+1], "-") {
+			group, value = arguments[index:index+2], arguments[index+1]
+			index++
+		}
+
+		flag, isFlag := strings.CutPrefix(name, "--")
+		if !isFlag || !passed(overrides, setting{flag, value}) {
+			kept = append(kept, group...)
+		}
+	}
+
+	return slices.Concat(kept, overrides)
+}
+
 func parameterName(assignment string) string {
 	name, _, _ := strings.Cut(assignment, "=")
 
