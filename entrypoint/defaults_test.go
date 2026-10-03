@@ -31,21 +31,54 @@ func TestWithDefaults(t *testing.T) {
 			[]string{
 				"mongod", "--setParameter", "enableTestCommands=1", "--setParameter=periodicNoopIntervalSecsExtra=1",
 				"--setParameter", "periodicNoopIntervalSecs=1",
+				"--oplogSize", "990",
 			},
 		},
 		{
 			[]string{"mongod", "--setParameter", "periodicNoopIntervalSecs=5"},
 			[][]setting{replicationDefaults},
-			[]string{"mongod", "--setParameter", "periodicNoopIntervalSecs=5"},
+			[]string{"mongod", "--setParameter", "periodicNoopIntervalSecs=5", "--setParameter", "enableTestCommands=1", "--oplogSize", "990"},
 		},
 		{
-			[]string{"mongod", "--setParameter=periodicNoopIntervalSecs=5"},
+			[]string{"mongod", "--setParameter=periodicNoopIntervalSecs=5", "--setParameter=enableTestCommands=0"},
 			[][]setting{replicationDefaults},
-			[]string{"mongod", "--setParameter=periodicNoopIntervalSecs=5"},
+			[]string{"mongod", "--setParameter=periodicNoopIntervalSecs=5", "--setParameter=enableTestCommands=0", "--oplogSize", "990"},
+		},
+		{
+			[]string{"mongod", "--oplogSize=64"},
+			[][]setting{replicationDefaults, cacheDefaults(nil, "2")},
+			[]string{
+				"mongod", "--oplogSize=64",
+				"--setParameter", "periodicNoopIntervalSecs=1",
+				"--setParameter", "enableTestCommands=1",
+				"--wiredTigerCacheSizeGB", "2",
+			},
+		},
+		{
+			[]string{"mongod", "--wiredTigerCacheSizeGB", "1"},
+			[][]setting{cacheDefaults(nil, "2")},
+			[]string{"mongod", "--wiredTigerCacheSizeGB", "1"},
 		},
 	} {
 		if actual := withDefaults(slices.Clone(testCase.arguments), testCase.groups...); !slices.Equal(actual, testCase.expected) {
 			t.Errorf("withDefaults(%q) = %q, expected %q", testCase.arguments, actual, testCase.expected)
+		}
+	}
+}
+
+func TestCacheDefaults(t *testing.T) {
+	for _, testCase := range []struct {
+		arguments []string
+		sizeGB    string
+		expected  []setting
+	}{
+		{[]string{"mongod", "--quiet"}, "1.5", []setting{{"wiredTigerCacheSizeGB", "1.5"}}},
+		{[]string{"mongod"}, "", nil},
+		{[]string{"mongod", "--wiredTigerCacheSizePct", "10"}, "2", nil},
+		{[]string{"mongod", "--wiredTigerCacheSizePct=10"}, "2", nil},
+	} {
+		if actual := cacheDefaults(testCase.arguments, testCase.sizeGB); !slices.Equal(actual, testCase.expected) {
+			t.Errorf("cacheDefaults(%q, %q) = %+v, expected %+v", testCase.arguments, testCase.sizeGB, actual, testCase.expected)
 		}
 	}
 }

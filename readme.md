@@ -53,25 +53,29 @@ Every tag also exists with a `-replica` or `-cluster` suffix, for example `9.0-r
 - `-replica` runs a single node replica set named `rs0` (`MONGODB_REPLICA_SET`), which is enough for transactions and change streams.
 - `-cluster` runs `mongos` on 27017 with a single node config server on 27018 on the loopback interface and a single node shard named `shard` on 27019. The shard listens on all interfaces, so tests can publish 27019 and connect to it with `directConnection=true`. With a root user configured, the same user is also created on the shard itself.
 
-Both use the same mongod defaults as the plain image plus `periodicNoopIntervalSecs=1`, so change streams on an idle deployment advance within a second. Both accept `MONGODB_ROOT_USERNAME` and `MONGODB_ROOT_PASSWORD` like the plain image, `MONGODB_PORT` to move the listening port, and only turn healthy once setup has finished.
+Both use the same mongod defaults as the plain image plus `periodicNoopIntervalSecs=1`, so change streams on an idle deployment advance within a second, and `enableTestCommands=1`, which `--setParameter enableTestCommands=0` turns off.
+
+Every mongod in them is also sized for tests. Each gets `--oplogSize 990`, MongoDB's minimum oplog. The replica set member and the shard get mongod's own default cache size capped at 2 GB, which is `min(2, max(0.25, (memory - 1) / 2))` GB of the container's memory limit, or of the host's memory without one. The config server gets the minimum cache of `0.25` GB, and `mongos` has no cache to size. Pass `--oplogSize`, `--wiredTigerCacheSizeGB` or `--wiredTigerCacheSizePct` to override them.
+
+Both accept `MONGODB_ROOT_USERNAME` and `MONGODB_ROOT_PASSWORD` like the plain image, `MONGODB_PORT` to move the listening port, and only turn healthy once setup has finished.
 
 Arguments after `--` go to mongod. In the cluster they go to the config server and the shard, never to `mongos`. Because they replace the image's `CMD`, name the flavor first:
 
 ```sh
 docker run -d -p 27017:27017 panascais/mongodb:9.0-replica \
-    replica -- --setParameter enableTestCommands=1 --wiredTigerCacheSizeGB 0.25 --oplogSize 64
+    replica -- --wiredTigerCacheSizeGB 1 --oplogSize 128
 docker run -d -p 27017:27017 -p 27019:27019 panascais/mongodb:9.0-cluster \
-    cluster -- --setParameter enableTestCommands=1 --wiredTigerCacheSizeGB 0.25 --oplogSize 64
+    cluster -- --oplogSize 128
 ```
 
-To give one cluster process its own arguments, set `MONGODB_CONFIG_ARGUMENTS`, `MONGODB_SHARD_ARGUMENTS` or `MONGODB_ROUTER_ARGUMENTS`. They are split on whitespace and added after the `--` arguments. A flag set in both replaces the `--` one for that process, since mongod refuses a flag given twice. This caps the config server's cache below the shard's:
+To give one cluster process its own arguments, set `MONGODB_CONFIG_ARGUMENTS`, `MONGODB_SHARD_ARGUMENTS` or `MONGODB_ROUTER_ARGUMENTS`. They are split on whitespace and added after the `--` arguments. A flag set in both replaces the `--` one for that process, since mongod refuses a flag given twice. A cache size after `--` also replaces the config server's `0.25`, so grow only the shard's cache like this:
 
 ```sh
-docker run -d -p 27017:27017 -e MONGODB_CONFIG_ARGUMENTS='--wiredTigerCacheSizeGB 0.5' \
-    panascais/mongodb:9.0-cluster cluster -- --wiredTigerCacheSizeGB 5.5
+docker run -d -p 27017:27017 -e MONGODB_SHARD_ARGUMENTS='--wiredTigerCacheSizeGB 4' \
+    panascais/mongodb:9.0-cluster
 ```
 
-Passing a default yourself overrides it, and `--setParameter` defaults are matched by parameter name, so `--setParameter enableTestCommands=1` keeps `periodicNoopIntervalSecs=1`. The same name matching applies when a per-process `--setParameter` replaces a `--` one. Leave `--port`, `--replSet`, `--dbpath`, `--bind_ip` and `--configdb` to the entrypoint.
+Passing a default yourself overrides it, and `--setParameter` defaults are matched by parameter name, so `--setParameter enableTestCommands=0` keeps `periodicNoopIntervalSecs=1`. The same name matching applies when a per-process `--setParameter` replaces a `--` one. Leave `--port`, `--replSet`, `--dbpath`, `--bind_ip` and `--configdb` to the entrypoint.
 
 The cluster works from anywhere, because clients only talk to `mongos`. For the replica set, drivers reconnect to the host the member advertises, so `MONGODB_REPLICA_HOST` has to be the name your clients reach the container by:
 

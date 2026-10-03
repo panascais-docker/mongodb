@@ -28,7 +28,6 @@ type registry struct {
 type flavor struct {
 	name     string
 	suffixes []string
-	command  []string
 }
 
 var (
@@ -39,8 +38,8 @@ var (
 	}
 	flavors = []flavor{
 		{name: "standalone", suffixes: []string{"", "-standalone"}},
-		{name: "replica", suffixes: []string{"-replica"}, command: []string{"replica", "--", "--setParameter", "enableTestCommands=1", "--oplogSize", "64"}},
-		{name: "cluster", suffixes: []string{"-cluster"}, command: []string{"cluster", "--", "--setParameter", "enableTestCommands=1", "--wiredTigerCacheSizeGB", "0.25"}},
+		{name: "replica", suffixes: []string{"-replica"}},
+		{name: "cluster", suffixes: []string{"-cluster"}},
 	}
 	pushPlatforms   = []string{"linux/amd64", "linux/arm64"}
 	defaultVariants = []string{"ubi10", "ubi9", "ubi8"}
@@ -54,7 +53,6 @@ type build struct {
 	version  string
 	builders map[string]string
 	tags     []string
-	command  []string
 }
 
 type bakeFile struct {
@@ -149,7 +147,6 @@ func planBuilds(line string, tags, digests, builders configuration) ([]build, er
 				version:  version,
 				builders: images,
 				tags:     imageTags,
-				command:  flavor.command,
 			})
 		}
 	}
@@ -259,7 +256,7 @@ func buildLocally(builds []build) error {
 
 	var group sync.WaitGroup
 	for index, build := range builds {
-		group.Go(func() { errs[index] = verifyImage(build.tags[0], build.command) })
+		group.Go(func() { errs[index] = verifyImage(build.tags[0]) })
 	}
 	group.Wait()
 
@@ -306,9 +303,9 @@ func bakeDefinition(builds []build, revision string, platforms []string) ([]byte
 	})
 }
 
-func verifyImage(image string, command []string) error {
+func verifyImage(image string) error {
 	for _, environment := range [][]string{nil, {"-e", "MONGODB_ROOT_USERNAME=root", "-e", "MONGODB_ROOT_PASSWORD=root"}} {
-		if err := verifyContainer(image, environment, command); err != nil {
+		if err := verifyContainer(image, environment); err != nil {
 			return err
 		}
 	}
@@ -316,8 +313,8 @@ func verifyImage(image string, command []string) error {
 	return nil
 }
 
-func verifyContainer(image string, environment, command []string) error {
-	container, err := output("docker", slices.Concat([]string{"run", "-d"}, environment, []string{image}, command)...)
+func verifyContainer(image string, environment []string) error {
+	container, err := output("docker", slices.Concat([]string{"run", "-d"}, environment, []string{image})...)
 	if err != nil {
 		return err
 	}

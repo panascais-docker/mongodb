@@ -37,10 +37,8 @@ func replicaCommand() *cobra.Command {
 
 func replica(options replicaOptions, arguments []string) {
 	port := strconv.Itoa(options.port)
-	mongod := withDefaults(
-		slices.Concat([]string{"mongod", "--replSet", options.name, "--port", port, "--dbpath", defaultDBPath, "--bind_ip_all"}, arguments),
-		mongodDefaults(defaultDBPath), replicationDefaults,
-	)
+	mongod := slices.Concat([]string{"mongod", "--replSet", options.name, "--port", port, "--dbpath", defaultDBPath, "--bind_ip_all"}, arguments)
+	mongod = withDefaults(mongod, mongodDefaults(defaultDBPath), replicationDefaults, cacheDefaults(mongod, cacheSizeGB(memoryLimit())))
 
 	launch(options.port, [][]string{mongod},
 		initiate(options.port, options.name, net.JoinHostPort(options.host, port), false),

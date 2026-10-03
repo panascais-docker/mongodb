@@ -11,7 +11,10 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
-const defaultDBPath = "/data/db"
+const (
+	defaultDBPath           = "/data/db"
+	configServerCacheSizeGB = "0.25"
+)
 
 type setting struct {
 	name  string
@@ -29,6 +32,8 @@ var (
 	}
 	replicationDefaults = []setting{
 		{"setParameter", "periodicNoopIntervalSecs=1"},
+		{"setParameter", "enableTestCommands=1"},
+		{"oplogSize", "990"},
 	}
 	layoutFlags = []struct{ option, flag string }{
 		{"directoryPerDB", "directoryperdb"},
@@ -38,6 +43,14 @@ var (
 
 func mongodDefaults(dbPath string) []setting {
 	return slices.Concat(networkDefaults, storageDefaults, layoutDefaults(dbPath))
+}
+
+func cacheDefaults(arguments []string, sizeGB string) []setting {
+	if sizeGB == "" || passed(arguments, setting{name: "wiredTigerCacheSizePct"}) {
+		return nil
+	}
+
+	return []setting{{"wiredTigerCacheSizeGB", sizeGB}}
 }
 
 func layoutDefaults(dbPath string) []setting {
