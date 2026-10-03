@@ -32,6 +32,14 @@ func initiate(port int, name, host string, configServer bool) step {
 	})
 }
 
+func release(signal chan<- struct{}) step {
+	return func(context.Context) error {
+		close(signal)
+
+		return nil
+	}
+}
+
 func addShard(port int, shard string) step {
 	return connected(port, func(ctx context.Context, client *mongo.Client) error {
 		return ignoreCodes(runAdmin(ctx, client, bson.D{{Key: "addShard", Value: shard}}).Err(), securedEarlier)

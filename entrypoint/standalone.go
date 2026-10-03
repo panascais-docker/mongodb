@@ -61,7 +61,7 @@ func standalone(arguments []string) {
 		arguments = append(arguments, "--auth")
 	}
 
-	serve(environment, [][]string{arguments}, createRoot(flags.port, root))
+	serve(environment, []process{{arguments: arguments}}, createRoot(flags.port, root))
 }
 
 func parseMongodFlags(arguments []string) mongodFlags {

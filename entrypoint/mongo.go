@@ -32,8 +32,28 @@ func dial(port int, login *credential) (*mongo.Client, error) {
 	return mongo.Connect(clientOptions)
 }
 
+func listening(ctx context.Context, port int) error {
+	address := net.JoinHostPort(loopback, strconv.Itoa(port))
+	for {
+		connection, err := net.DialTimeout("tcp", address, time.Second)
+		if err == nil {
+			return connection.Close()
+		}
+
+		select {
+		case <-ctx.Done():
+			return err
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
+
 func connected(port int, use func(context.Context, *mongo.Client) error) step {
 	return func(ctx context.Context) error {
+		if err := listening(ctx, port); err != nil {
+			return err
+		}
+
 		client, err := dial(port, nil)
 		if err != nil {
 			return err

@@ -50,15 +50,21 @@ func cluster(port int, arguments []string) {
 	configMongod := slices.Concat([]string{"mongod", "--configsvr", "--replSet", "config", "--port", strconv.Itoa(configServerPort), "--dbpath", configDBPath, "--bind_ip", loopback}, processArguments("MONGODB_CONFIG_ARGUMENTS", arguments))
 	shardMongod := slices.Concat([]string{"mongod", "--shardsvr", "--replSet", "shard", "--port", strconv.Itoa(shardPort), "--dbpath", defaultDBPath, "--bind_ip_all"}, processArguments("MONGODB_SHARD_ARGUMENTS", arguments))
 
-	launch(port, [][]string{
-		withDefaults(configMongod, mongodDefaults(configDBPath), replicationDefaults, cacheDefaults(configMongod, configServerCacheSizeGB)),
-		withDefaults(shardMongod, mongodDefaults(defaultDBPath), replicationDefaults, cacheDefaults(shardMongod, cacheSizeGB(memoryLimit()))),
-		withDefaults(
-			slices.Concat([]string{"mongos", "--configdb", "config/" + configServer, "--port", strconv.Itoa(port), "--bind_ip_all"}, processArguments("MONGODB_ROUTER_ARGUMENTS", nil)),
-			networkDefaults,
-		),
+	configReady := make(chan struct{})
+
+	launch(port, []process{
+		{arguments: withDefaults(configMongod, mongodDefaults(configDBPath), replicationDefaults, cacheDefaults(configMongod, configServerCacheSizeGB))},
+		{arguments: withDefaults(shardMongod, mongodDefaults(defaultDBPath), replicationDefaults, cacheDefaults(shardMongod, cacheSizeGB(memoryLimit())))},
+		{
+			arguments: withDefaults(
+				slices.Concat([]string{"mongos", "--configdb", "config/" + configServer, "--port", strconv.Itoa(port), "--bind_ip_all"}, processArguments("MONGODB_ROUTER_ARGUMENTS", nil)),
+				networkDefaults,
+			),
+			after: configReady,
+		},
 	},
 		initiate(configServerPort, "config", configServer, true),
+		release(configReady),
 		initiate(shardPort, "shard", shard, false),
 		addShard(port, "shard/"+shard),
 		createRoot(shardPort, loadRootCredential()),

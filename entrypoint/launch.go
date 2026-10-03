@@ -12,13 +12,13 @@ const (
 	readyFile = "/tmp/mongodb-ready"
 )
 
-func launch(port int, processes [][]string, steps ...step) {
+func launch(port int, processes []process, steps ...step) {
 	environment := mongodEnvironment()
 	root := loadRootCredential()
 	security := prepareRun(root)
 
 	for index := range processes {
-		processes[index] = append(processes[index], security...)
+		processes[index].arguments = append(processes[index].arguments, security...)
 	}
 
 	serve(environment, processes, append(steps, createRoot(port, root), markReady(port))...)
