@@ -26,8 +26,27 @@ func TestWithDefaults(t *testing.T) {
 			},
 		},
 		{
+			[]string{"mongod"},
+			[][]setting{mongodDefaults(t.TempDir())},
+			[]string{
+				"mongod",
+				"--networkMessageCompressors", "zstd,snappy",
+				"--timeStampFormat", "iso8601-utc",
+				"--wiredTigerJournalCompressor", "zstd",
+				"--wiredTigerCollectionBlockCompressor", "zstd",
+				"--setParameter", "periodicNoopIntervalSecs=1",
+				"--directoryperdb",
+				"--wiredTigerDirectoryForIndexes",
+			},
+		},
+		{
+			[]string{"mongod", "--setParameter", "periodicNoopIntervalSecs=5"},
+			[][]setting{parameterDefaults},
+			[]string{"mongod", "--setParameter", "periodicNoopIntervalSecs=5"},
+		},
+		{
 			[]string{"mongod", "--setParameter", "enableTestCommands=1", "--setParameter=periodicNoopIntervalSecsExtra=1"},
-			[][]setting{replicationDefaults},
+			[][]setting{parameterDefaults, replicationDefaults},
 			[]string{
 				"mongod", "--setParameter", "enableTestCommands=1", "--setParameter=periodicNoopIntervalSecsExtra=1",
 				"--setParameter", "periodicNoopIntervalSecs=1",
@@ -36,17 +55,17 @@ func TestWithDefaults(t *testing.T) {
 		},
 		{
 			[]string{"mongod", "--setParameter", "periodicNoopIntervalSecs=5"},
-			[][]setting{replicationDefaults},
+			[][]setting{parameterDefaults, replicationDefaults},
 			[]string{"mongod", "--setParameter", "periodicNoopIntervalSecs=5", "--setParameter", "enableTestCommands=1", "--oplogSize", "990"},
 		},
 		{
 			[]string{"mongod", "--setParameter=periodicNoopIntervalSecs=5", "--setParameter=enableTestCommands=0"},
-			[][]setting{replicationDefaults},
+			[][]setting{parameterDefaults, replicationDefaults},
 			[]string{"mongod", "--setParameter=periodicNoopIntervalSecs=5", "--setParameter=enableTestCommands=0", "--oplogSize", "990"},
 		},
 		{
 			[]string{"mongod", "--oplogSize=64"},
-			[][]setting{replicationDefaults, cacheDefaults(nil, "2")},
+			[][]setting{parameterDefaults, replicationDefaults, cacheDefaults(nil, "2")},
 			[]string{
 				"mongod", "--oplogSize=64",
 				"--setParameter", "periodicNoopIntervalSecs=1",

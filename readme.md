@@ -42,7 +42,7 @@ docker run -d -p 27017:27017 \
 - `MONGODB_ROOT_USERNAME` and `MONGODB_ROOT_PASSWORD`, or `*_FILE` pointing to a secret, create a root user on first start and enable `--auth`. Without them mongod runs without auth.
 - Arguments starting with `-` go to `mongod`, for example `docker run panascais/mongodb --port 27018`. `--bind_ip_all` is added unless you pass `--bind_ip`, `--bind_ip_all` or a config file.
 - The image has a `HEALTHCHECK`. With a root user configured it only turns healthy once that user can log in.
-- mongod starts with `--networkMessageCompressors zstd,snappy`, `--timeStampFormat iso8601-utc`, `--wiredTigerJournalCompressor zstd` and `--wiredTigerCollectionBlockCompressor zstd`. A new data directory also gets `--directoryperdb` and `--wiredTigerDirectoryForIndexes`, an existing one keeps the layout it was created with. Passing a flag yourself overrides its default, and a config file replaces all of them.
+- mongod starts with `--networkMessageCompressors zstd,snappy`, `--timeStampFormat iso8601-utc`, `--wiredTigerJournalCompressor zstd`, `--wiredTigerCollectionBlockCompressor zstd` and `--setParameter periodicNoopIntervalSecs=1`, so change streams on an idle replica set advance within a second. A new data directory also gets `--directoryperdb` and `--wiredTigerDirectoryForIndexes`, an existing one keeps the layout it was created with. Passing a flag yourself overrides its default, and a config file replaces all of them.
 
 Compared to the upstream image there is no `mongosh`, no `mongos`, no `/docker-entrypoint-initdb.d` and none of the `MONGODB_INITDB_*` variables. Connect with `mongosh` from your host or another container.
 
@@ -53,7 +53,7 @@ Every tag also exists with a `-replica` or `-cluster` suffix, for example `9.0-r
 - `-replica` runs a single node replica set named `rs0` (`MONGODB_REPLICA_SET`), which is enough for transactions and change streams.
 - `-cluster` runs `mongos` on 27017 with a single node config server on 27018 on the loopback interface and a single node shard named `shard` on 27019. The shard listens on all interfaces, so tests can publish 27019 and connect to it with `directConnection=true`. With a root user configured, the same user is also created on the shard itself.
 
-Both use the same mongod defaults as the plain image plus `periodicNoopIntervalSecs=1`, so change streams on an idle deployment advance within a second, and `enableTestCommands=1`, which `--setParameter enableTestCommands=0` turns off.
+Both use the same mongod defaults as the plain image, including `periodicNoopIntervalSecs=1` on the replica set member, the config server and the shard, plus `enableTestCommands=1`, which `--setParameter enableTestCommands=0` turns off.
 
 Every mongod in them is also sized for tests. Each gets `--oplogSize 990`, MongoDB's minimum oplog. The replica set member and the shard get mongod's own default cache size capped at 2 GB, which is `min(2, max(0.25, (memory - 1) / 2))` GB of the container's memory limit, or of the host's memory without one. The config server gets the minimum cache of `0.25` GB, and `mongos` has no cache to size. Pass `--oplogSize`, `--wiredTigerCacheSizeGB` or `--wiredTigerCacheSizePct` to override them.
 

@@ -30,8 +30,10 @@ var (
 		{"wiredTigerJournalCompressor", "zstd"},
 		{"wiredTigerCollectionBlockCompressor", "zstd"},
 	}
-	replicationDefaults = []setting{
+	parameterDefaults = []setting{
 		{"setParameter", "periodicNoopIntervalSecs=1"},
+	}
+	replicationDefaults = []setting{
 		{"setParameter", "enableTestCommands=1"},
 		{"oplogSize", "990"},
 	}
@@ -42,7 +44,7 @@ var (
 )
 
 func mongodDefaults(dbPath string) []setting {
-	return slices.Concat(networkDefaults, storageDefaults, layoutDefaults(dbPath))
+	return slices.Concat(networkDefaults, storageDefaults, parameterDefaults, layoutDefaults(dbPath))
 }
 
 func cacheDefaults(arguments []string, sizeGB string) []setting {
