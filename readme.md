@@ -104,6 +104,8 @@ go run ./scripts build 9.0
 
 This builds every variant and flavor of a line for the local architecture and waits for each image to become healthy, once without and once with a root user. `configuration/tags.json` and `configuration/digests.json` pin the upstream images by digest, `configuration/builders.json` pins the `golang` and `alpine` images the `Dockerfile` builds with, and `go run ./scripts update` refreshes them. A new builder digest rebuilds every line.
 
+Pushed images carry an `net.panascais.docker.mongodb.fingerprint` annotation over everything that goes into them: the pins, the `Dockerfile`, `go.mod`, `go.sum`, the entrypoint sources and the tags. On a push to `master`, `go run ./scripts plan` compares it with the published images and only rebuilds the lines that changed. A manual run of the workflow rebuilds every line.
+
 ## Contributors
 
 - Silas Rech [(silas@panascais.net)](mailto:silas@panascais.net)

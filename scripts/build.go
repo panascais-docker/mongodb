@@ -47,12 +47,13 @@ var (
 )
 
 type build struct {
-	flavor   string
-	image    string
-	variant  string
-	version  string
-	builders map[string]string
-	tags     []string
+	flavor      string
+	image       string
+	variant     string
+	version     string
+	builders    map[string]string
+	tags        []string
+	fingerprint string
 }
 
 type bakeFile struct {
@@ -65,11 +66,12 @@ type bakeGroup struct {
 }
 
 type bakeTarget struct {
-	Args      map[string]string `json:"args"`
-	Context   string            `json:"context"`
-	Platforms []string          `json:"platforms,omitzero"`
-	Tags      []string          `json:"tags"`
-	Target    string            `json:"target"`
+	Annotations []string          `json:"annotations,omitzero"`
+	Args        map[string]string `json:"args"`
+	Context     string            `json:"context"`
+	Platforms   []string          `json:"platforms,omitzero"`
+	Tags        []string          `json:"tags"`
+	Target      string            `json:"target"`
 }
 
 func buildCommand() *cobra.Command {
@@ -82,17 +84,7 @@ func buildCommand() *cobra.Command {
 }
 
 func buildLine(line string) error {
-	tags, err := readConfiguration(tagsFile)
-	if err != nil {
-		return err
-	}
-
-	digests, err := readConfiguration(digestsFile)
-	if err != nil {
-		return err
-	}
-
-	builders, err := readConfiguration(buildersFile)
+	tags, digests, builders, err := readPins()
 	if err != nil {
 		return err
 	}
@@ -107,6 +99,25 @@ func buildLine(line string) error {
 	}
 
 	return buildLocally(builds)
+}
+
+func readPins() (configuration, configuration, configuration, error) {
+	tags, err := readConfiguration(tagsFile)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	digests, err := readConfiguration(digestsFile)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	builders, err := readConfiguration(buildersFile)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return tags, digests, builders, nil
 }
 
 func planBuilds(line string, tags, digests, builders configuration) ([]build, error) {
@@ -244,7 +255,12 @@ func publish(builds []build) error {
 		}
 	}
 
-	return bake(builds, revision, pushPlatforms, "--push")
+	fingerprinted, err := withFingerprints(builds)
+	if err != nil {
+		return err
+	}
+
+	return bake(fingerprinted, revision, pushPlatforms, "--push")
 }
 
 func buildLocally(builds []build) error {
@@ -288,12 +304,18 @@ func bakeDefinition(builds []build, revision string, platforms []string) ([]byte
 		}
 		maps.Copy(arguments, build.builders)
 
+		var annotations []string
+		if build.fingerprint != "" {
+			annotations = []string{"index:" + fingerprintAnnotation + "=" + build.fingerprint}
+		}
+
 		targets[build.variant+"-"+build.flavor] = bakeTarget{
-			Args:      arguments,
-			Context:   ".",
-			Platforms: platforms,
-			Tags:      build.tags,
-			Target:    build.flavor,
+			Annotations: annotations,
+			Args:        arguments,
+			Context:     ".",
+			Platforms:   platforms,
+			Tags:        build.tags,
+			Target:      build.flavor,
 		}
 	}
 

@@ -6,31 +6,42 @@ on:
             - master
 
 jobs:
-    lines:
-        name: lines
+    plan:
+        name: plan
         if: "!contains(github.event.head_commit.message, '[skip ci]')"
         runs-on: blacksmith-2vcpu-ubuntu-2404
         outputs:
-            lines: ${{ steps.lines.outputs.lines }}
+            lines: ${{ steps.plan.outputs.lines }}
         steps:
             - name: pull repository
               uses: actions/checkout@v6
               id: repository
 
-            - name: read lines
-              id: lines
+            - name: install go
+              id: go
+              uses: actions/setup-go@v6
+              with:
+                  go-version-file: go.mod
+                  cache: true
+
+            - name: plan the stale lines
+              id: plan
               run: |
-                  echo "lines=$(jq -c 'keys' configuration/tags.json)" >> $GITHUB_OUTPUT
+                  go run ./scripts plan ${{ github.event_name == 'workflow_dispatch' && '--force' || '' }} >> $GITHUB_OUTPUT
+              env:
+                  CONTAINER_REGISTRY_TOKEN: ${{ secrets.CONTAINER_REGISTRY_TOKEN }}
+                  CONTAINER_REGISTRY_USERNAME: ${{ secrets.CONTAINER_REGISTRY_USERNAME }}
 
     deploy:
         name: ${{ matrix.line }}
-        needs: [lines]
+        needs: [plan]
+        if: needs.plan.outputs.lines != '[]'
         runs-on: blacksmith-2vcpu-ubuntu-2404
         timeout-minutes: 360
         strategy:
             max-parallel: 8
             matrix:
-                line: ${{ fromJSON(needs.lines.outputs.lines) }}
+                line: ${{ fromJSON(needs.plan.outputs.lines) }}
         steps:
             - name: pull repository
               uses: actions/checkout@v6
