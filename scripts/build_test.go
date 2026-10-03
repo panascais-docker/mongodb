@@ -52,3 +52,59 @@ func TestBuilderImages(t *testing.T) {
 		}
 	}
 }
+
+func TestPlanManifests(t *testing.T) {
+	digest := func(character string) string { return "sha256:" + strings.Repeat(character, 64) }
+	tags := configuration{"9.0": {"ubi10": "9.0.2-ubi10-slim"}}
+	digests := configuration{"9.0": {"ubi10": digest("a")}}
+	builders := configuration{"alpine": {"3.24": digest("a")}}
+	pushed := func(architectures ...string) map[string]configuration {
+		value := map[string]configuration{}
+		for index, architecture := range architectures {
+			value[architecture] = configuration{}
+			for _, flavor := range flavors {
+				value[architecture].set("9.0", "ubi10-"+flavor.name, digest(string(rune('b'+index))))
+			}
+		}
+
+		return value
+	}
+
+	creations, err := planManifests(pushed("amd64", "arm64"), tags, digests, builders, digest("e"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(creations) != len(flavors)*len(registries) {
+		t.Fatalf("planManifests() = %d creations, expected %d", len(creations), len(flavors)*len(registries))
+	}
+
+	builds, err := planBuilds("9.0", tags, digests, builders)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []string{
+		"buildx", "imagetools", "create",
+		"--annotation", "index:net.panascais.docker.mongodb.fingerprint=" + builds[1].fingerprintWith(digest("e")),
+		"--tag", "panascais/mongodb:9.0-ubi10-replica",
+		"--tag", "panascais/mongodb:9.0.2-ubi10-replica",
+		"--tag", "panascais/mongodb:9-ubi10-replica",
+		"--tag", "panascais/mongodb:latest-ubi10-replica",
+		"--tag", "panascais/mongodb:9.0-replica",
+		"--tag", "panascais/mongodb:9.0.2-replica",
+		"--tag", "panascais/mongodb:9-replica",
+		"--tag", "panascais/mongodb:latest-replica",
+		"panascais/mongodb@" + digest("b"),
+		"panascais/mongodb@" + digest("c"),
+	}
+	if !slices.Equal(creations[len(registries)+1], expected) {
+		t.Errorf("planManifests() = %q, expected %q", creations[len(registries)+1], expected)
+	}
+
+	for _, testCase := range []map[string]configuration{pushed("amd64"), {}} {
+		if _, err := planManifests(testCase, tags, digests, builders, digest("e")); err == nil {
+			t.Errorf("planManifests(%v) succeeded, expected an error", testCase)
+		}
+	}
+}

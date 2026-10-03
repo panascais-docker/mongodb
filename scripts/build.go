@@ -8,7 +8,9 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -17,7 +19,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const healthTimeout = 60 * time.Second
+const (
+	healthTimeout    = 60 * time.Second
+	digestsDirectory = "digests"
+)
 
 type registry struct {
 	host    string
@@ -41,7 +46,6 @@ var (
 		{name: "replica", suffixes: []string{"-replica"}},
 		{name: "cluster", suffixes: []string{"-cluster"}},
 	}
-	pushPlatforms   = []string{"linux/amd64", "linux/arm64"}
 	defaultVariants = []string{"ubi10", "ubi9", "ubi8"}
 	digestPattern   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 )
@@ -66,24 +70,31 @@ type bakeGroup struct {
 }
 
 type bakeTarget struct {
-	Annotations []string          `json:"annotations,omitzero"`
-	Args        map[string]string `json:"args"`
-	Context     string            `json:"context"`
-	Platforms   []string          `json:"platforms,omitzero"`
-	Tags        []string          `json:"tags"`
-	Target      string            `json:"target"`
+	Args      map[string]string `json:"args"`
+	Context   string            `json:"context"`
+	Output    []string          `json:"output,omitzero"`
+	Platforms []string          `json:"platforms"`
+	Tags      []string          `json:"tags,omitzero"`
+	Target    string            `json:"target"`
 }
+
+type export func(build build) (tags, outputs []string)
 
 func buildCommand() *cobra.Command {
-	return &cobra.Command{
+	var platform string
+
+	command := &cobra.Command{
 		Use:   "build <line>",
-		Short: "Build every variant of a line, pushing on GitHub Actions and smoke testing locally",
+		Short: "Build every variant of a line, pushing by digest on GitHub Actions and smoke testing locally",
 		Args:  cobra.ExactArgs(1),
-		RunE:  func(_ *cobra.Command, arguments []string) error { return buildLine(arguments[0]) },
+		RunE:  func(_ *cobra.Command, arguments []string) error { return buildLine(arguments[0], platform) },
 	}
+	command.Flags().StringVar(&platform, "platform", "linux/"+runtime.GOARCH, "platform to build")
+
+	return command
 }
 
-func buildLine(line string) error {
+func buildLine(line, platform string) error {
 	tags, digests, builders, err := readPins()
 	if err != nil {
 		return err
@@ -95,10 +106,10 @@ func buildLine(line string) error {
 	}
 
 	if os.Getenv("GITHUB_ACTIONS") == "true" {
-		return publish(builds)
+		return push(line, builds, platform)
 	}
 
-	return buildLocally(builds)
+	return buildLocally(builds, platform)
 }
 
 func readPins() (configuration, configuration, configuration, error) {
@@ -243,28 +254,76 @@ func defaultVariant(variants map[string]string) string {
 	return ""
 }
 
-func publish(builds []build) error {
+func (build build) target() string {
+	return build.variant + "-" + build.flavor
+}
+
+func push(line string, builds []build, platform string) error {
 	revision, err := output("git", "rev-parse", "--short", "HEAD")
 	if err != nil {
 		return err
 	}
 
+	var images []string
 	for _, registry := range registries {
 		if err := registry.login(); err != nil {
 			return err
 		}
+
+		images = append(images, registry.image)
 	}
 
-	fingerprinted, err := withFingerprints(builds)
+	metadataFile := filepath.Join(os.TempDir(), "mongodb-metadata.json")
+	push := func(build) ([]string, []string) {
+		return nil, []string{`type=image,"name=` + strings.Join(images, ",") + `",push-by-digest=true,name-canonical=true,push=true`}
+	}
+	if err := bake(builds, revision, platform, push, "--metadata-file", metadataFile); err != nil {
+		return err
+	}
+
+	pushed, err := readPushedDigests(metadataFile, line, builds)
 	if err != nil {
 		return err
 	}
 
-	return bake(fingerprinted, revision, pushPlatforms, "--push")
+	if err := os.MkdirAll(digestsDirectory, 0o755); err != nil {
+		return err
+	}
+
+	_, architecture, _ := strings.Cut(platform, "/")
+
+	return writeConfiguration(filepath.Join(digestsDirectory, line+"-"+architecture+".json"), pushed)
 }
 
-func buildLocally(builds []build) error {
-	if err := bake(builds, "local", nil, "--load"); err != nil {
+func readPushedDigests(metadataFile, line string, builds []build) (configuration, error) {
+	content, err := os.ReadFile(metadataFile)
+	if err != nil {
+		return nil, err
+	}
+
+	var metadata map[string]json.RawMessage
+	if err := json.Unmarshal(content, &metadata); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", metadataFile, err)
+	}
+
+	pushed := configuration{}
+	for _, build := range builds {
+		var result struct {
+			Digest string `json:"containerimage.digest"`
+		}
+		if err := json.Unmarshal(metadata[build.target()], &result); err != nil || !digestPattern.MatchString(result.Digest) {
+			return nil, fmt.Errorf("no pushed digest for %s in %s", build.target(), metadataFile)
+		}
+
+		pushed.set(line, build.target(), result.Digest)
+	}
+
+	return pushed, nil
+}
+
+func buildLocally(builds []build, platform string) error {
+	load := func(build build) ([]string, []string) { return build.tags, nil }
+	if err := bake(builds, "local", platform, load, "--load"); err != nil {
 		return err
 	}
 
@@ -279,19 +338,19 @@ func buildLocally(builds []build) error {
 	return errors.Join(errs...)
 }
 
-func bake(builds []build, revision string, platforms []string, mode string) error {
-	definition, err := bakeDefinition(builds, revision, platforms)
+func bake(builds []build, revision, platform string, export export, flags ...string) error {
+	definition, err := bakeDefinition(builds, revision, platform, export)
 	if err != nil {
 		return err
 	}
 
-	process := command("docker", "buildx", "bake", "--file", "-", "--progress=plain", mode)
+	process := command("docker", slices.Concat([]string{"buildx", "bake", "--file", "-", "--progress=plain"}, flags)...)
 	process.Stdin = bytes.NewReader(definition)
 
 	return process.Run()
 }
 
-func bakeDefinition(builds []build, revision string, platforms []string) ([]byte, error) {
+func bakeDefinition(builds []build, revision, platform string, export export) ([]byte, error) {
 	date := time.Now().UTC().Format(time.RFC3339)
 
 	targets := make(map[string]bakeTarget, len(builds))
@@ -304,18 +363,14 @@ func bakeDefinition(builds []build, revision string, platforms []string) ([]byte
 		}
 		maps.Copy(arguments, build.builders)
 
-		var annotations []string
-		if build.fingerprint != "" {
-			annotations = []string{"index:" + fingerprintAnnotation + "=" + build.fingerprint}
-		}
-
-		targets[build.variant+"-"+build.flavor] = bakeTarget{
-			Annotations: annotations,
-			Args:        arguments,
-			Context:     ".",
-			Platforms:   platforms,
-			Tags:        build.tags,
-			Target:      build.flavor,
+		tags, outputs := export(build)
+		targets[build.target()] = bakeTarget{
+			Args:      arguments,
+			Context:   ".",
+			Output:    outputs,
+			Platforms: []string{platform},
+			Tags:      tags,
+			Target:    build.flavor,
 		}
 	}
 
@@ -366,6 +421,7 @@ func (registry registry) login() error {
 	}
 
 	login := command("docker", append(arguments, "-u", os.Getenv(registry.secrets+"_REGISTRY_USERNAME"), "--password-stdin")...)
+	login.Stdout = os.Stderr
 	login.Stdin = strings.NewReader(os.Getenv(registry.secrets + "_REGISTRY_TOKEN"))
 
 	return login.Run()

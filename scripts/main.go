@@ -12,7 +12,7 @@ func main() {
 		Short:        "Build panascais/mongodb images and update their configuration",
 		SilenceUsage: true,
 	}
-	command.AddCommand(buildCommand(), planCommand(), updateCommand())
+	command.AddCommand(buildCommand(), planCommand(), publishCommand(), updateCommand())
 	command.CompletionOptions.DisableDefaultCmd = true
 
 	if command.Execute() != nil {
