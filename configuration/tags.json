@@ -10,27 +10,27 @@
         "ubi9": "6.0.29-ubi9-slim"
     },
     "7.0": {
-        "ubi8": "7.0.43-ubi8-slim",
-        "ubi9": "7.0.43-ubi9-slim",
-        "ubi10": "7.0.43-ubi10-slim"
+        "ubi8": "7.0.45-ubi8-slim",
+        "ubi9": "7.0.45-ubi9-slim",
+        "ubi10": "7.0.45-ubi10-slim"
     },
     "8.0": {
-        "ubi8": "8.0.32-ubi8-slim",
-        "ubi9": "8.0.32-ubi9-slim",
-        "ubi10": "8.0.32-ubi10-slim"
+        "ubi8": "8.0.34-ubi8-slim",
+        "ubi9": "8.0.34-ubi9-slim",
+        "ubi10": "8.0.34-ubi10-slim"
     },
     "8.2": {
         "ubi8": "8.2.12-ubi8-slim",
         "ubi9": "8.2.12-ubi9-slim"
     },
     "8.3": {
-        "ubi8": "8.3.11-ubi8-slim",
-        "ubi9": "8.3.11-ubi9-slim",
-        "ubi10": "8.3.11-ubi10-slim"
+        "ubi8": "8.3.13-ubi8-slim",
+        "ubi9": "8.3.13-ubi9-slim",
+        "ubi10": "8.3.13-ubi10-slim"
     },
     "9.0": {
-        "ubi8": "9.0.2-ubi8-slim",
-        "ubi9": "9.0.2-ubi9-slim",
-        "ubi10": "9.0.2-ubi10-slim"
+        "ubi8": "9.0.4-ubi8-slim",
+        "ubi9": "9.0.4-ubi9-slim",
+        "ubi10": "9.0.4-ubi10-slim"
     }
 }
