@@ -23,7 +23,7 @@ type setting struct {
 
 var (
 	networkDefaults = []setting{
-		{"networkMessageCompressors", "zstd,snappy"},
+		{"networkMessageCompressors", "zstd,snappy,zlib"},
 		{"timeStampFormat", "iso8601-utc"},
 	}
 	storageDefaults = []setting{

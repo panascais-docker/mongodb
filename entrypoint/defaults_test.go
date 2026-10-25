@@ -20,7 +20,7 @@ func TestWithDefaults(t *testing.T) {
 			[][]setting{networkDefaults, storageDefaults, {{name: "directoryperdb"}}},
 			[]string{
 				"mongod", "--timeStampFormat=iso8601-local", "--wiredTigerJournalCompressor", "snappy",
-				"--networkMessageCompressors", "zstd,snappy",
+				"--networkMessageCompressors", "zstd,snappy,zlib",
 				"--wiredTigerCollectionBlockCompressor", "zstd",
 				"--directoryperdb",
 			},
@@ -30,7 +30,7 @@ func TestWithDefaults(t *testing.T) {
 			[][]setting{mongodDefaults(t.TempDir())},
 			[]string{
 				"mongod",
-				"--networkMessageCompressors", "zstd,snappy",
+				"--networkMessageCompressors", "zstd,snappy,zlib",
 				"--timeStampFormat", "iso8601-utc",
 				"--wiredTigerJournalCompressor", "zstd",
 				"--wiredTigerCollectionBlockCompressor", "zstd",
