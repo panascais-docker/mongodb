@@ -18,8 +18,8 @@ func TestStaleLines(t *testing.T) {
 		lines     []string
 	}{
 		{"current", expected, false, []string{}},
-		{"force", expected, true, []string{"8.0", "9.0"}},
-		{"missing images", configuration{}, false, []string{"8.0", "9.0"}},
+		{"force", expected, true, []string{"9.0", "8.0"}},
+		{"missing images", configuration{}, false, []string{"9.0", "8.0"}},
 		{
 			"missing flavor",
 			configuration{"8.0": expected["8.0"], "9.0": {"ghcr.io/x:9.0-ubi10": "sha256:c"}},
@@ -42,15 +42,15 @@ func TestStaleLines(t *testing.T) {
 func TestFingerprintWith(t *testing.T) {
 	original := build{
 		flavor:   "replica",
-		image:    "mongodb/mongodb-community-server:9.0.2-ubi10-slim@sha256:a",
-		builders: map[string]string{"GOLANG_IMAGE": "golang:1.27-alpine@sha256:b"},
+		image:    "mirror.gcr.io/mongodb/mongodb-community-server:9.0.2-ubi10-slim@sha256:a",
+		builders: map[string]string{"GOLANG_IMAGE": "mirror.gcr.io/library/golang:1.27-alpine@sha256:b"},
 		tags:     []string{"ghcr.io/x:9.0-ubi10-replica", "ghcr.io/x:latest-replica"},
 	}
 	expected := original.fingerprintWith("sha256:sources")
 
 	for name, changed := range map[string]build{
-		"image":    {flavor: original.flavor, image: "mongodb/mongodb-community-server:9.0.3-ubi10-slim@sha256:c", builders: original.builders, tags: original.tags},
-		"builders": {flavor: original.flavor, image: original.image, builders: map[string]string{"GOLANG_IMAGE": "golang:1.27-alpine@sha256:d"}, tags: original.tags},
+		"image":    {flavor: original.flavor, image: "mirror.gcr.io/mongodb/mongodb-community-server:9.0.3-ubi10-slim@sha256:c", builders: original.builders, tags: original.tags},
+		"builders": {flavor: original.flavor, image: original.image, builders: map[string]string{"GOLANG_IMAGE": "mirror.gcr.io/library/golang:1.27-alpine@sha256:d"}, tags: original.tags},
 		"tags":     {flavor: original.flavor, image: original.image, builders: original.builders, tags: original.tags[:1]},
 	} {
 		if changed.fingerprintWith("sha256:sources") == expected {

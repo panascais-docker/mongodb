@@ -15,12 +15,12 @@ func TestChangedLines(t *testing.T) {
 	digests := configuration{"8.0": {"ubi9": "sha256:a"}, "9.0": {"ubi9": "sha256:d"}, "9.1": {"ubi9": "sha256:e"}}
 	tags := configuration{"8.0": {"ubi9": "8.0.1-ubi9-slim"}, "9.0": {"ubi9": "9.0.1-ubi9-slim"}, "9.1": {"ubi9": "9.1.0-ubi9-slim"}}
 
-	if lines := changedLines(buildersBefore, digests, tags, buildersBefore, digestsBefore, tagsBefore); !slices.Equal(lines, []string{"9.0", "9.1"}) {
-		t.Errorf("changedLines() = %v, expected [9.0 9.1]", lines)
+	if lines := changedLines(buildersBefore, digests, tags, buildersBefore, digestsBefore, tagsBefore); !slices.Equal(lines, []string{"9.1", "9.0"}) {
+		t.Errorf("changedLines() = %v, expected [9.1 9.0]", lines)
 	}
 
-	if lines := changedLines(builders, digests, tags, buildersBefore, digests, tags); !slices.Equal(lines, []string{"8.0", "9.0", "9.1"}) {
-		t.Errorf("changedLines() = %v, expected [8.0 9.0 9.1]", lines)
+	if lines := changedLines(builders, digests, tags, buildersBefore, digests, tags); !slices.Equal(lines, []string{"9.1", "9.0", "8.0"}) {
+		t.Errorf("changedLines() = %v, expected [9.1 9.0 8.0]", lines)
 	}
 
 	if lines := changedLines(builders, digests, tags, builders, digests, tags); lines == nil || len(lines) != 0 {

@@ -16,7 +16,8 @@ const (
 	buildersFile = "configuration/builders.json"
 	digestsFile  = "configuration/digests.json"
 	tagsFile     = "configuration/tags.json"
-	repository   = "mongodb/mongodb-community-server"
+	mirror       = "mirror.gcr.io"
+	repository   = mirror + "/mongodb/mongodb-community-server"
 )
 
 type configuration map[string]map[string]string

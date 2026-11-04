@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/crane"
@@ -58,7 +59,7 @@ func update(ctx context.Context) error {
 		return err
 	}
 
-	names, err := crane.ListTags(repository, dockerHub(ctx)...)
+	names, err := upstreamTags(ctx, repository)
 	if err != nil {
 		return err
 	}
@@ -105,7 +106,7 @@ func changedLines(builders, digests, tags, buildersBefore, digestsBefore, tagsBe
 	rebuild := !builders.equal(buildersBefore)
 
 	lines := []string{}
-	for _, line := range sortedKeys(tags) {
+	for _, line := range slices.Backward(sortedKeys(tags)) {
 		if rebuild || digests.changed(digestsBefore, line) || tags.changed(tagsBefore, line) {
 			lines = append(lines, line)
 		}
@@ -144,7 +145,7 @@ func resolveBuilders(ctx context.Context, buildersBefore configuration) (configu
 	builders := configuration{}
 	for image, tags := range buildersBefore {
 		for tag, pinned := range tags {
-			digest, err := fetchDigest(ctx, "library/"+image, tag, pinned)
+			digest, err := fetchDigest(ctx, mirror+"/library/"+image, tag, pinned)
 			if err != nil {
 				return nil, err
 			}
@@ -180,12 +181,16 @@ func resolveReleases(names []string) map[string]map[string]release {
 }
 
 func fetchDigest(ctx context.Context, image, tag, pinned string) (string, error) {
-	head, err := crane.Head(image+":"+tag, dockerHub(ctx)...)
+	head, err := crane.Head(image+":"+tag, registryOptions(ctx)...)
+	if missing(err) {
+		return "", nil
+	}
+
 	if err != nil || head.Digest.String() == pinned {
 		return pinned, err
 	}
 
-	manifest, err := crane.Manifest(image+"@"+head.Digest.String(), dockerHub(ctx)...)
+	manifest, err := crane.Manifest(image+"@"+head.Digest.String(), registryOptions(ctx)...)
 	if err != nil {
 		return "", err
 	}
@@ -206,9 +211,15 @@ func fetchDigest(ctx context.Context, image, tag, pinned string) (string, error)
 	return head.Digest.String(), nil
 }
 
-func dockerHub(ctx context.Context) []crane.Option {
-	return []crane.Option{crane.WithContext(ctx), func(options *crane.Options) {
+// listing tags is not a pull, and docker hub shows new releases before the mirror has cached them
+func upstreamTags(ctx context.Context, repository string) ([]string, error) {
+	return crane.ListTags(strings.TrimPrefix(repository, mirror+"/"), append(registryOptions(ctx), func(options *crane.Options) {
 		options.Name = append(options.Name, name.WithDefaultRegistry("registry-1.docker.io"))
+	})...)
+}
+
+func registryOptions(ctx context.Context) []crane.Option {
+	return []crane.Option{crane.WithContext(ctx), func(options *crane.Options) {
 		options.Remote = append(options.Remote, remote.WithPageSize(1_000_000))
 	}}
 }

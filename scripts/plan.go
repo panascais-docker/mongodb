@@ -129,7 +129,7 @@ func missing(err error) bool {
 
 func staleLines(expected, published configuration, force bool) []string {
 	lines := []string{}
-	for _, line := range sortedKeys(expected) {
+	for _, line := range slices.Backward(sortedKeys(expected)) {
 		if force || expected.changed(published, line) {
 			lines = append(lines, line)
 		}
