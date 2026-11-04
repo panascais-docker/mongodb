@@ -9,11 +9,9 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/crane"
-	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/spf13/cobra"
@@ -59,7 +57,7 @@ func update(ctx context.Context) error {
 		return err
 	}
 
-	names, err := upstreamTags(ctx, repository)
+	names, err := crane.ListTags(repository, registryOptions(ctx)...)
 	if err != nil {
 		return err
 	}
@@ -209,13 +207,6 @@ func fetchDigest(ctx context.Context, image, tag, pinned string) (string, error)
 	}
 
 	return head.Digest.String(), nil
-}
-
-// listing tags is not a pull, and docker hub shows new releases before the mirror has cached them
-func upstreamTags(ctx context.Context, repository string) ([]string, error) {
-	return crane.ListTags(strings.TrimPrefix(repository, mirror+"/"), append(registryOptions(ctx), func(options *crane.Options) {
-		options.Name = append(options.Name, name.WithDefaultRegistry("registry-1.docker.io"))
-	})...)
 }
 
 func registryOptions(ctx context.Context) []crane.Option {

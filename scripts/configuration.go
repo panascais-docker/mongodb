@@ -17,7 +17,7 @@ const (
 	digestsFile  = "configuration/digests.json"
 	tagsFile     = "configuration/tags.json"
 	mirror       = "mirror.gcr.io"
-	repository   = mirror + "/mongodb/mongodb-community-server"
+	repository   = "quay.io/mongodb/mongodb-community-server"
 )
 
 type configuration map[string]map[string]string

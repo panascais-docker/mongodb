@@ -7,11 +7,11 @@ import (
 )
 
 func TestChangedLines(t *testing.T) {
-	buildersBefore := configuration{"golang": {"1.27-alpine": "sha256:f"}}
+	buildersBefore := configuration{"golang": {"alpine": "sha256:f"}}
 	digestsBefore := configuration{"8.0": {"ubi9": "sha256:a"}, "9.0": {"ubi9": "sha256:b"}, "4.4": {"ubi8": "sha256:c"}}
 	tagsBefore := configuration{"8.0": {"ubi9": "8.0.1-ubi9-slim"}, "9.0": {"ubi9": "9.0.1-ubi9-slim"}, "4.4": {"ubi8": "4.4.1-ubi8-slim"}}
 
-	builders := configuration{"golang": {"1.27-alpine": "sha256:g"}}
+	builders := configuration{"golang": {"alpine": "sha256:g"}}
 	digests := configuration{"8.0": {"ubi9": "sha256:a"}, "9.0": {"ubi9": "sha256:d"}, "9.1": {"ubi9": "sha256:e"}}
 	tags := configuration{"8.0": {"ubi9": "8.0.1-ubi9-slim"}, "9.0": {"ubi9": "9.0.1-ubi9-slim"}, "9.1": {"ubi9": "9.1.0-ubi9-slim"}}
 
