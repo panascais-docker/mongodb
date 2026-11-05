@@ -106,6 +106,8 @@ This builds every variant and flavor of a line for the local architecture and wa
 
 Pushed images carry an `net.panascais.docker.mongodb.fingerprint` annotation over everything that goes into them: the pins, the `Dockerfile`, `go.mod`, `go.sum`, the entrypoint sources and the tags. On a push to `master`, `go run ./scripts plan` compares it with the published images and only rebuilds the lines that changed. Each stale line builds natively on an amd64 and an arm64 runner, which push their images by digest, and `go run ./scripts publish` then merges both digests into the tagged multi-platform images. A manual run of the workflow rebuilds every line.
 
+Every job pulls Docker Hub images, BuildKit included, through `mirror.gcr.io` to stay clear of Docker Hub rate limits, and falls back to Docker Hub only when the mirror has not cached an image yet.
+
 ## Contributors
 
 - Silas Rech [(silas@panascais.net)](mailto:silas@panascais.net)

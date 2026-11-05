@@ -42,7 +42,7 @@ func TestBuilderImages(t *testing.T) {
 	}{
 		{
 			configuration{"alpine": {"3.24": digest}, "golang": {"alpine": digest}},
-			map[string]string{"ALPINE_IMAGE": "mirror.gcr.io/library/alpine:3.24@" + digest, "GOLANG_IMAGE": "mirror.gcr.io/library/golang:alpine@" + digest},
+			map[string]string{"ALPINE_IMAGE": "docker.io/library/alpine:3.24@" + digest, "GOLANG_IMAGE": "docker.io/library/golang:alpine@" + digest},
 		},
 		{configuration{"alpine": {"3.24": ""}}, nil},
 		{configuration{"alpine": {"3.23": digest, "3.24": digest}}, nil},

@@ -16,7 +16,7 @@ const (
 	buildersFile = "configuration/builders.json"
 	digestsFile  = "configuration/digests.json"
 	tagsFile     = "configuration/tags.json"
-	mirror       = "mirror.gcr.io"
+	library      = "docker.io/library/"
 	repository   = "quay.io/mongodb/mongodb-community-server"
 )
 

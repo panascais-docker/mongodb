@@ -143,7 +143,7 @@ func resolveBuilders(ctx context.Context, buildersBefore configuration) (configu
 	builders := configuration{}
 	for image, tags := range buildersBefore {
 		for tag, pinned := range tags {
-			digest, err := fetchDigest(ctx, mirror+"/library/"+image, tag, pinned)
+			digest, err := fetchDigest(ctx, library+image, tag, pinned)
 			if err != nil {
 				return nil, err
 			}

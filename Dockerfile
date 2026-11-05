@@ -1,6 +1,6 @@
-# syntax=mirror.gcr.io/docker/dockerfile:1
-ARG ALPINE_IMAGE=mirror.gcr.io/library/alpine:3.24
-ARG GOLANG_IMAGE=mirror.gcr.io/library/golang:alpine
+# syntax=docker.io/docker/dockerfile:1
+ARG ALPINE_IMAGE=docker.io/library/alpine:3.24
+ARG GOLANG_IMAGE=docker.io/library/golang:alpine
 ARG MONGODB_IMAGE=quay.io/mongodb/mongodb-community-server:9.0-ubi10-slim
 
 FROM --platform=$BUILDPLATFORM ${GOLANG_IMAGE} AS entrypoint

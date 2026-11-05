@@ -201,7 +201,7 @@ func builderImages(builders configuration) (map[string]string, error) {
 				return nil, fmt.Errorf("invalid builder digest %q for %s:%s", digest, image, tag)
 			}
 
-			images[strings.ToUpper(image)+"_IMAGE"] = mirror + "/library/" + image + ":" + tag + "@" + digest
+			images[strings.ToUpper(image)+"_IMAGE"] = library + image + ":" + tag + "@" + digest
 		}
 	}
 
